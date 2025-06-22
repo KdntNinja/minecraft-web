@@ -5,19 +5,12 @@ WORKDIR /app/game
 COPY ./game .
 
 # Build Go WASM binary
-RUN GOOS=js GOARCH=wasm go build -o main.wasm main.go
+RUN GOOS=js GOARCH=wasm go build -o wasm/main.wasm main.go
 
-WORKDIR /app/server
-COPY ./server .
-
-# Final image: use Go to serve built game assets
-FROM golang:1.24.4-bookworm
-WORKDIR /app
-# Copy only the built WASM and static assets (not Go source)
-COPY --from=builder /app/game/index.html ./game/index.html
-COPY --from=builder /app/game/main.wasm ./game/main.wasm
-COPY --from=builder /app/game/wasm_exec.js ./game/wasm_exec.js
-COPY --from=builder /app/server/serve.go ./server/serve.go
-
+# Final image: use Python to serve the game directory
+FROM python:alpine
+WORKDIR /app/game
+COPY --from=builder /app/game/static ./static
+COPY --from=builder /app/game/wasm ./wasm
 EXPOSE 8000
-CMD ["go", "run", "server/serve.go"]
+CMD ["python3", "-m", "http.server", "8000"]
