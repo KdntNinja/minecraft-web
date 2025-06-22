@@ -12,5 +12,6 @@ FROM python:alpine
 WORKDIR /app/game
 COPY --from=builder /app/game/static ./static
 COPY --from=builder /app/game/wasm ./wasm
+COPY --from=builder /app/game/static/index.html ./index.html
 EXPOSE 8000
 CMD ["python3", "-m", "http.server", "8000"]
