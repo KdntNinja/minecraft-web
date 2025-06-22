@@ -33,7 +33,7 @@
 }</component>
   <component name="GithubPullRequestsUISettings">{
   &quot;selectedUrlAndAccountId&quot;: {
-    &quot;url&quot;: &quot;https://github.com/KdntNinja/minecraft-web.git&quot;,
+    &quot;url&quot;: &quot;https://github.com/KdntNinja/webcraft.git&quot;,
     &quot;accountId&quot;: &quot;f8641087-6f1a-407b-8f0b-f3c7d94cc0d8&quot;
   }
 }</component>
@@ -61,7 +61,7 @@
     &quot;go.import.settings.migrated&quot;: &quot;true&quot;,
     &quot;go.sdk.automatically.set&quot;: &quot;true&quot;,
     &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/home/kaiden/GolandProjects/minecraft-web&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/home/kaiden/GolandProjects/webcraft&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
     &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
