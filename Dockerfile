@@ -1,5 +1,5 @@
 # Use the official Rust image as the build environment
-FROM rust:latest as builder
+FROM rust:latest AS builder
 
 WORKDIR /app
 
@@ -13,7 +13,7 @@ RUN rustup target add wasm32-unknown-unknown
 RUN cargo build --release --target wasm32-unknown-unknown --profile wasm-release
 
 # Final image (optional: use a minimal image if you want to serve the WASM)
-FROM debian:bullseye-slim as final
+FROM debian:bullseye-slim AS final
 WORKDIR /app
 
 # Copy the built WASM file(s) from the builder
