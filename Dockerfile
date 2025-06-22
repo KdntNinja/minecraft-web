@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.24.4-slim AS builder
+FROM golang:1.24.4-bookworm AS builder
 
 WORKDIR /app/game
 COPY ./game .
@@ -11,7 +11,7 @@ WORKDIR /app/server
 COPY ./server .
 
 # Final image: use Go to serve files
-FROM golang:1.24.4-slim
+FROM golang:1.24.4-bookworm
 WORKDIR /app
 COPY --from=builder /app/game ./game
 COPY --from=builder /app/server/serve.go ./server/serve.go
