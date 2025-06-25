@@ -1,23 +1,19 @@
-# Use the official Rust image as the build environment
-FROM rust:latest AS builder
-
+# ---- Build Stage ----
+FROM golang:1.24.3 AS builder
 WORKDIR /app
-
-# Copy source code and manifest
 COPY . .
+RUN GOOS=js GOARCH=wasm go build -o /app/wasm/main.wasm ./main.go
 
-# Install wasm32 target for Rust
-RUN rustup target add wasm32-unknown-unknown
+# ---- Production Stage ----
+FROM nginx:alpine
+WORKDIR /usr/share/nginx/html
+COPY --from=builder /app/wasm/main.wasm ./wasm/main.wasm
+COPY wasm/wasm_exec.js ./wasm/wasm_exec.js
+COPY wasm/index.html ./wasm/index.html
+COPY wasm /usr/share/nginx/html/wasm
 
-# Build the project with the custom profile for wasm
-RUN cargo build --release --target wasm32-unknown-unknown --profile wasm-release
+# Change Nginx to listen on port 3000
+RUN sed -i 's/listen\s\+80;/listen 3000;/' /etc/nginx/conf.d/default.conf
 
-# Final image (optional: use a minimal image if you want to serve the WASM)
-FROM debian:bullseye-slim AS final
-WORKDIR /app
-
-# Copy the built WASM file(s) from the builder
-COPY --from=builder /app/target/wasm32-unknown-unknown/wasm-release /app/wasm-release
-
-# Set default command (list files for demonstration)
-CMD ["ls", "/app/wasm-release"]
+EXPOSE 3000
+CMD ["nginx", "-g", "daemon off;"]
