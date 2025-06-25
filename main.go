@@ -8,8 +8,8 @@ import (
 )
 
 func main() {
-	ebiten.SetWindowSize(640, 480)
-	ebiten.SetWindowTitle("Hello, World!")
+	log.Println("Starting Webcraft...")
+	ebiten.SetWindowSize(engine.ScreenWidth, engine.ScreenHeight)
 	game := engine.NewGame()
 	if err := ebiten.RunGame(game); err != nil {
 		log.Fatal(err)

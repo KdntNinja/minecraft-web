@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/fps-rust.iml" filepath="$PROJECT_DIR$/.idea/fps-rust.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/webcraft.iml" filepath="$PROJECT_DIR$/.idea/webcraft.iml" />
     </modules>
   </component>
 </project>

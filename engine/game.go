@@ -1,16 +1,10 @@
 package engine
 
-type Game struct {
-	Terrain [][]Block
-	Width   int
-	Height  int
-}
+import "log"
 
-// NewGame initializes the game with zero size; Layout will set the real size
+type Game struct{}
+
 func NewGame() *Game {
-	return &Game{
-		Terrain: [][]Block{},
-		Width:   0,
-		Height:  0,
-	}
+	log.Println("NewGame created")
+	return &Game{}
 }

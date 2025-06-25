@@ -1,12 +1,13 @@
 package engine
 
+import "log"
+
+const (
+	ScreenWidth  = 1024
+	ScreenHeight = 768
+)
+
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
-	tilesX := outsideWidth / tileSize
-	tilesY := outsideHeight / tileSize
-	if tilesX != g.Width || tilesY != g.Height {
-		g.Terrain = generateTerrainDynamic(tilesY, tilesX)
-		g.Width = tilesX
-		g.Height = tilesY
-	}
-	return outsideWidth, outsideHeight
+	log.Printf("Layout called: outsideWidth=%d, outsideHeight=%d -> %d x %d", outsideWidth, outsideHeight, ScreenWidth, ScreenHeight)
+	return ScreenWidth, ScreenHeight
 }
