@@ -10,7 +10,8 @@ set -e
 # Build the WASM binary using the module path for reproducibility
 MODULE_PATH="github.com/KdntNinja/webcraft"
 echo "Building wasm/main.wasm..."
-env GOOS=js GOARCH=wasm go build -o wasm/main.wasm "$MODULE_PATH"
+# Force Ebiten to use WebGL1 for maximum browser compatibility (including Firefox)
+env GOOS=js GOARCH=wasm EBITEN_GRAPHICS_LIBRARY=opengl go build -o wasm/main.wasm "$MODULE_PATH"
 
 echo "Copying wasm_exec.js if needed..."
 # Prefer Go 1.24+ location, fallback to older if not found
