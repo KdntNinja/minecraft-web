@@ -7,6 +7,10 @@ RUN GOOS=js GOARCH=wasm go build -o /app/wasm/main.wasm ./main.go
 # ---- Production Stage ----
 FROM python:3.12-alpine
 WORKDIR /app
+
+# Install curl for healthchecks
+RUN apk add --no-cache curl
+
 COPY --from=builder /app/wasm/main.wasm ./wasm/main.wasm
 COPY wasm/wasm_exec.js ./wasm/wasm_exec.js
 COPY wasm/index.html ./index.html
