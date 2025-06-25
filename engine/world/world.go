@@ -4,6 +4,12 @@ import (
 	"math/rand"
 
 	"github.com/KdntNinja/webcraft/engine/block"
+	"github.com/aquilax/go-perlin"
+)
+
+const (
+	seed       = 100
+	smoothness = 100.0
 )
 
 type BlockType int
@@ -19,28 +25,29 @@ type Chunk [block.ChunkHeight][block.ChunkWidth]BlockType
 
 type World [][]Chunk // [vertical][horizontal] for multiple columns
 
-var surfaceHeights = make(map[int]int)
+var (
+	surfaceHeights = make(map[int]int)
+	perlinInstance *perlin.Perlin
+)
+
+func getPerlin() *perlin.Perlin {
+	if perlinInstance == nil {
+		perlinInstance = perlin.NewPerlin(2, 2, 3, rand.Int63())
+	}
+	return perlinInstance
+}
 
 func getSurfaceHeight(x int) int {
 	h, ok := surfaceHeights[x]
 	if ok {
 		return h
 	}
-	prev := block.ChunkHeight / 2
-	if x > 0 {
-		prev = getSurfaceHeight(x - 1)
-	}
-	// Random walk for demo
-	change := rand.Intn(3) - 1 // -1, 0, or +1
-	h = prev + change
-	if h < 4 {
-		h = 4
-	}
-	if h > block.ChunkHeight-4 {
-		h = block.ChunkHeight - 4
-	}
-	surfaceHeights[x] = h
-	return h
+	// Use Perlin noise for smoother terrain
+	scale := 0.08 // Adjust for frequency
+	noise := getPerlin().Noise1D(float64(x) * scale)
+	height := int((noise+1)*0.5*float64(block.ChunkHeight-8)) + 4
+	surfaceHeights[x] = height
+	return height
 }
 
 func GenerateChunk(chunkX, chunkY int) Chunk {
