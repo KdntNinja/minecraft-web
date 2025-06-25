@@ -14,7 +14,8 @@ func IsSolid(blocks [][]int, x, y int) bool {
 	if y < 0 || x < 0 || y >= len(blocks) || x >= len(blocks[0]) {
 		return false
 	}
-	return blocks[y][x] != 0 // 0 = Air, nonzero = solid
+	// Only treat nonzero as solid, zero (air) is not a block at all
+	return blocks[y][x] > 0
 }
 
 // Generic AABB collision logic for entities colliding with blocks
