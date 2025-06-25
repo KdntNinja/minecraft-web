@@ -7,7 +7,7 @@
 *.out
 
 # WASM build artifacts
-*main.wasm
+wasm/main.wasm
 *wasm_exec.js
 
 # Python http.server cache
