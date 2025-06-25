@@ -6,14 +6,11 @@ type Game struct {
 	Height  int
 }
 
-// NewGame initializes the game and terrain
-func NewGame(screenWidth, screenHeight int) *Game {
-	tilesX := screenWidth / tileSize
-	tilesY := screenHeight / tileSize
-	terrain := generateTerrainDynamic(tilesY, tilesX)
+// NewGame initializes the game with zero size; Layout will set the real size
+func NewGame() *Game {
 	return &Game{
-		Terrain: terrain,
-		Width:   tilesX,
-		Height:  tilesY,
+		Terrain: [][]Block{},
+		Width:   0,
+		Height:  0,
 	}
 }
