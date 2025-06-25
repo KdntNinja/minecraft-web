@@ -3,8 +3,8 @@ package engine
 import "log"
 
 const (
-	ScreenWidth  = 1024
-	ScreenHeight = 768
+	ScreenWidth  = 2048
+	ScreenHeight = 1536
 )
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
