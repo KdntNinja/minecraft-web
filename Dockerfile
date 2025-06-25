@@ -5,15 +5,12 @@ COPY . .
 RUN GOOS=js GOARCH=wasm go build -o /app/wasm/main.wasm ./main.go
 
 # ---- Production Stage ----
-FROM nginx:alpine
-WORKDIR /usr/share/nginx/html
+FROM python:3.12-alpine
+WORKDIR /app
 COPY --from=builder /app/wasm/main.wasm ./wasm/main.wasm
 COPY wasm/wasm_exec.js ./wasm/wasm_exec.js
 COPY wasm/index.html ./index.html
-COPY wasm /usr/share/nginx/html/wasm
-
-# Change Nginx to listen on port 3000
-RUN sed -i 's/listen\s\+80;/listen 3000;/' /etc/nginx/conf.d/default.conf
+COPY wasm /app/wasm
 
 EXPOSE 3000
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["python", "-m", "http.server", "3000"]
