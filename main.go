@@ -3,8 +3,9 @@ package main
 import (
 	"log"
 
-	"github.com/KdntNinja/webcraft/engine"
 	"github.com/hajimehoshi/ebiten/v2"
+
+	"github.com/KdntNinja/webcraft/engine"
 )
 
 func main() {

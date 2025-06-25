@@ -3,8 +3,11 @@ package world
 import (
 	"math/rand"
 
-	"github.com/KdntNinja/webcraft/engine/block"
 	"github.com/aquilax/go-perlin"
+
+	"github.com/KdntNinja/webcraft/engine/block"
+	"github.com/KdntNinja/webcraft/engine/entity"
+	"github.com/KdntNinja/webcraft/engine/player"
 )
 
 const (
@@ -23,7 +26,10 @@ const (
 
 type Chunk [block.ChunkHeight][block.ChunkWidth]BlockType
 
-type World [][]Chunk // [vertical][horizontal] for multiple columns
+type World struct {
+	Blocks   [][]Chunk // [vertical][horizontal] for multiple columns
+	Entities entity.Entities
+}
 
 var (
 	surfaceHeights = make(map[int]int)
@@ -71,16 +77,42 @@ func GenerateChunk(chunkX, chunkY int) Chunk {
 	return chunk
 }
 
-// GenerateWorld generates a 2D slice of chunks: [vertical][horizontal]
-func GenerateWorld(numChunksY int, centerChunkX int) [][]Chunk {
+// NewWorld constructs a new World instance with generated chunks
+func NewWorld(numChunksY int, centerChunkX int) *World {
 	width := 5 // 2 chunks left, 1 center, 2 right
-	world := make([][]Chunk, numChunksY)
+	blocks := make([][]Chunk, numChunksY)
 	for cy := 0; cy < numChunksY; cy++ {
-		world[cy] = make([]Chunk, width)
+		blocks[cy] = make([]Chunk, width)
 		for cx := 0; cx < width; cx++ {
 			chunkX := centerChunkX + cx - 2
-			world[cy][cx] = GenerateChunk(chunkX, cy)
+			blocks[cy][cx] = GenerateChunk(chunkX, cy)
 		}
 	}
-	return world
+	w := &World{
+		Blocks:   blocks,
+		Entities: entity.Entities{},
+	}
+	// Add player entity at center
+	px := (len(blocks[0])*block.ChunkWidth/2)*block.TileSize + block.TileSize/2
+	py := 0.0
+	w.Entities = append(w.Entities, player.NewPlayer(float64(px), py))
+	return w
+}
+
+// ToIntGrid flattens the world's blocks into a [][]int grid for entity collision
+func (w *World) ToIntGrid() [][]int {
+	height := len(w.Blocks) * block.ChunkHeight
+	width := len(w.Blocks[0]) * block.ChunkWidth
+	grid := make([][]int, height)
+	for y := 0; y < height; y++ {
+		grid[y] = make([]int, width)
+		cy := y / block.ChunkHeight
+		inChunkY := y % block.ChunkHeight
+		for x := 0; x < width; x++ {
+			cx := x / block.ChunkWidth
+			inChunkX := x % block.ChunkWidth
+			grid[y][x] = int(w.Blocks[cy][cx][inChunkY][inChunkX])
+		}
+	}
+	return grid
 }

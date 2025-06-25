@@ -3,9 +3,10 @@ package render
 import (
 	"image/color"
 
+	"github.com/hajimehoshi/ebiten/v2"
+
 	"github.com/KdntNinja/webcraft/engine/block"
 	"github.com/KdntNinja/webcraft/engine/world"
-	"github.com/hajimehoshi/ebiten/v2"
 )
 
 var tileImages map[world.BlockType]*ebiten.Image
