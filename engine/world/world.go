@@ -95,7 +95,6 @@ func NewWorld(numChunksY int, centerChunkX int) *World {
 	// Add player entity at center
 	px := (len(blocks[0])*block.ChunkWidth/2)*block.TileSize + block.TileSize/2
 	playerGlobalX := px / block.TileSize
-	// Use ToIntGrid to get the world as a 2D grid
 	grid := w.ToIntGrid()
 	spawnY := 0
 	for y := 0; y < len(grid); y++ {
@@ -105,9 +104,10 @@ func NewWorld(numChunksY int, centerChunkX int) *World {
 		}
 	}
 	if spawnY < 0 {
-		spawnY = 0 // fallback to top if no solid block found
+		spawnY = 0
 	}
-	py := float64(spawnY*block.TileSize - player.Height/2)
+	// Center player in the block, fully inside
+	py := float64(spawnY * block.TileSize)
 	w.Entities = append(w.Entities, player.NewPlayer(float64(px), py))
 	return w
 }
