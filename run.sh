@@ -24,6 +24,6 @@ else
   ./wasm/scripts/find_wasm_exec.sh
 fi
 
-echo "Starting local server at http://localhost:8080/"
+echo "Starting local server at http://localhost:3000/"
 cd wasm
-python3 -m http.server 8080
+go run serve.go
