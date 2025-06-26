@@ -10,10 +10,10 @@ import (
 const (
 	Width        = block.TileSize
 	Height       = block.TileSize * 2
-	MoveSpeed    = 4.0
-	JumpSpeed    = -10.0
-	Gravity      = 0.6
-	MaxFallSpeed = 10.0
+	MoveSpeed    = 6.0   // Increased speed for larger blocks
+	JumpSpeed    = -12.0 // Stronger jump for larger blocks
+	Gravity      = 0.8   // Slightly stronger gravity
+	MaxFallSpeed = 15.0  // Higher terminal velocity
 )
 
 type Player struct {
