@@ -28,18 +28,36 @@ func Draw(g *[][]world.Chunk, screen *ebiten.Image) {
 
 	screenWidth, screenHeight := screen.Size()
 
+	// Calculate visible tile bounds to avoid rendering off-screen tiles
+	startTileX := 0
+	endTileX := (screenWidth + block.TileSize - 1) / block.TileSize
+	startTileY := 0
+	endTileY := (screenHeight + block.TileSize - 1) / block.TileSize
+
 	for cy := 0; cy < len(*g); cy++ {
 		for cx := 0; cx < len((*g)[cy]); cx++ {
 			chunk := (*g)[cy][cx]
 			for y := 0; y < block.ChunkHeight; y++ {
 				for x := 0; x < block.ChunkWidth; x++ {
-					px := (cx*block.ChunkWidth + x) * block.TileSize
-					py := (cy*block.ChunkHeight + y) * block.TileSize
-					if px+block.TileSize < 0 || px >= screenWidth || py+block.TileSize < 0 || py >= screenHeight {
+					globalTileX := cx*block.ChunkWidth + x
+					globalTileY := cy*block.ChunkHeight + y
+
+					// Only render tiles that are within screen bounds
+					if globalTileX < startTileX || globalTileX >= endTileX ||
+						globalTileY < startTileY || globalTileY >= endTileY {
 						continue
 					}
+
+					px := globalTileX * block.TileSize
+					py := globalTileY * block.TileSize
+
+					// Double-check pixel bounds
+					if px >= screenWidth || py >= screenHeight {
+						continue
+					}
+
 					tile := tileImages[chunk[y][x]]
-					if tile == nil {
+					if tile == nil || chunk[y][x] == world.Air {
 						continue
 					}
 					var op ebiten.DrawImageOptions

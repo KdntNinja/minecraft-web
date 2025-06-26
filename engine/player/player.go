@@ -8,11 +8,12 @@ import (
 )
 
 const (
-	Width     = block.TileSize
-	Height    = block.TileSize * 2
-	MoveSpeed = 3.0
-	JumpSpeed = -8.0
-	Gravity   = 0.5
+	Width        = block.TileSize
+	Height       = block.TileSize * 2
+	MoveSpeed    = 4.0
+	JumpSpeed    = -10.0
+	Gravity      = 0.6
+	MaxFallSpeed = 10.0
 )
 
 type Player struct {
@@ -28,18 +29,29 @@ func NewPlayer(x, y float64) *Player {
 }
 
 func (p *Player) Update() {
+	// Handle horizontal movement - smooth and responsive
+	p.VX = 0
+
 	if ebiten.IsKeyPressed(ebiten.KeyLeft) || ebiten.IsKeyPressed(ebiten.KeyA) {
 		p.VX = -MoveSpeed
-	} else if ebiten.IsKeyPressed(ebiten.KeyRight) || ebiten.IsKeyPressed(ebiten.KeyD) {
-		p.VX = MoveSpeed
-	} else {
-		p.VX = 0
 	}
+	if ebiten.IsKeyPressed(ebiten.KeyRight) || ebiten.IsKeyPressed(ebiten.KeyD) {
+		p.VX = MoveSpeed
+	}
+
+	// Jump - only when grounded and key pressed
 	if (ebiten.IsKeyPressed(ebiten.KeyUp) || ebiten.IsKeyPressed(ebiten.KeyW) || ebiten.IsKeyPressed(ebiten.KeySpace)) && p.OnGround {
 		p.VY = JumpSpeed
 		p.OnGround = false
 	}
-	entity.ApplyGravity(&p.VY, Gravity)
+
+	// Apply gravity with terminal velocity
+	if !p.OnGround {
+		p.VY += Gravity
+		if p.VY > MaxFallSpeed {
+			p.VY = MaxFallSpeed
+		}
+	}
 }
 
 func (p *Player) CollideBlocks(blocks [][]int) {

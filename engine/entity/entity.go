@@ -1,5 +1,7 @@
 package entity
 
+import "github.com/KdntNinja/webcraft/engine/block"
+
 // Entity is the interface for all game entities (player, mobs, etc.)
 type Entity interface {
 	Update()
@@ -27,31 +29,53 @@ type AABB struct {
 }
 
 func (a *AABB) CollideBlocks(blocks [][]int) {
-	a.OnGround = false
-	px0 := int(a.X) / a.Width
-	py0 := int(a.Y) / a.Height
-	px1 := int(a.X+float64(a.Width)-1) / a.Width
-	py1 := int(a.Y+float64(a.Height)-1) / a.Height
+	// Move horizontally first
+	if a.VX != 0 {
+		a.X += a.VX
 
-	for y := py0; y <= py1; y++ {
-		for x := px0; x <= px1; x++ {
-			if IsSolid(blocks, x, y) {
-				if a.VY > 0 && int(a.Y+float64(a.Height)) > y*a.Height && int(a.Y) < (y+1)*a.Height {
-					a.Y = float64(y*a.Height - a.Height)
+		// Check for horizontal collision and resolve
+		if a.VX > 0 { // Moving right
+			rightEdge := int((a.X + float64(a.Width) - 1) / float64(block.TileSize))
+			for y := int(a.Y / float64(block.TileSize)); y <= int((a.Y+float64(a.Height)-1)/float64(block.TileSize)); y++ {
+				if IsSolid(blocks, rightEdge, y) {
+					a.X = float64(rightEdge*block.TileSize - a.Width)
+					break
+				}
+			}
+		} else { // Moving left
+			leftEdge := int(a.X / float64(block.TileSize))
+			for y := int(a.Y / float64(block.TileSize)); y <= int((a.Y+float64(a.Height)-1)/float64(block.TileSize)); y++ {
+				if IsSolid(blocks, leftEdge, y) {
+					a.X = float64((leftEdge + 1) * block.TileSize)
+					break
+				}
+			}
+		}
+	}
+
+	// Move vertically second
+	a.OnGround = false
+	if a.VY != 0 {
+		a.Y += a.VY
+
+		// Check for vertical collision and resolve
+		if a.VY > 0 { // Moving down (falling)
+			bottomEdge := int((a.Y + float64(a.Height) - 1) / float64(block.TileSize))
+			for x := int(a.X / float64(block.TileSize)); x <= int((a.X+float64(a.Width)-1)/float64(block.TileSize)); x++ {
+				if IsSolid(blocks, x, bottomEdge) {
+					a.Y = float64(bottomEdge*block.TileSize - a.Height)
 					a.VY = 0
 					a.OnGround = true
+					break
 				}
-				if a.VY < 0 && int(a.Y) < (y+1)*a.Height && int(a.Y+float64(a.Height)) > y*a.Height {
-					a.Y = float64((y + 1) * a.Height)
+			}
+		} else { // Moving up (jumping)
+			topEdge := int(a.Y / float64(block.TileSize))
+			for x := int(a.X / float64(block.TileSize)); x <= int((a.X+float64(a.Width)-1)/float64(block.TileSize)); x++ {
+				if IsSolid(blocks, x, topEdge) {
+					a.Y = float64((topEdge + 1) * block.TileSize)
 					a.VY = 0
-				}
-				if a.VX > 0 && int(a.X+float64(a.Width)) > x*a.Width && int(a.X) < (x+1)*a.Width {
-					a.X = float64(x*a.Width - a.Width)
-					a.VX = 0
-				}
-				if a.VX < 0 && int(a.X) < (x+1)*a.Width && int(a.X+float64(a.Width)) > x*a.Width {
-					a.X = float64((x + 1) * a.Width)
-					a.VX = 0
+					break
 				}
 			}
 		}

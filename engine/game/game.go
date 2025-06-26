@@ -1,11 +1,10 @@
-package engine
+package game
 
 import (
 	"image/color"
 
 	"github.com/hajimehoshi/ebiten/v2"
 
-	"github.com/KdntNinja/webcraft/engine/block"
 	"github.com/KdntNinja/webcraft/engine/player"
 	"github.com/KdntNinja/webcraft/engine/render"
 	"github.com/KdntNinja/webcraft/engine/world"
@@ -37,10 +36,8 @@ func (g *Game) Update() error {
 		e.Update()
 		if p, ok := e.(interface {
 			CollideBlocks([][]int)
-			ClampX(float64, float64)
 		}); ok {
 			p.CollideBlocks(grid)
-			p.ClampX(0, float64(len(grid[0])*block.TileSize-player.Width))
 		}
 	}
 	return nil
@@ -63,44 +60,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
-	// Calculate how many chunks are needed to fill the view
-	chunksX := (outsideWidth + block.ChunkWidth*block.TileSize - 1) / (block.ChunkWidth * block.TileSize)
-	chunksY := (outsideHeight + block.ChunkHeight*block.TileSize - 1) / (block.ChunkHeight * block.TileSize)
-
-	// Update MaxChunksY based on window height to match exactly
-	g.MaxChunksY = chunksY
-
-	// Ensure we have exactly the right number of vertical chunks to fill the screen
-	currentChunksY := len(g.World.Blocks)
-
-	if currentChunksY < chunksY {
-		// Add more rows to reach the required height
-		for i := currentChunksY; i < chunksY; i++ {
-			newRow := make([]world.Chunk, len(g.World.Blocks[0]))
-			for cx := range newRow {
-				newRow[cx] = world.GenerateChunk(g.CenterX+cx-len(newRow)/2, i)
-			}
-			g.World.Blocks = append(g.World.Blocks, newRow)
-		}
-		g.LoadedY = chunksY
-	} else if currentChunksY > chunksY {
-		// Remove excess rows to match exactly
-		g.World.Blocks = g.World.Blocks[:chunksY]
-		g.LoadedY = chunksY
-	}
-
-	// Ensure enough horizontal chunks in each row
-	for y := 0; y < len(g.World.Blocks); y++ {
-		row := g.World.Blocks[y]
-		if len(row) < chunksX {
-			newRow := make([]world.Chunk, chunksX)
-			copy(newRow, row)
-			for x := len(row); x < chunksX; x++ {
-				newRow[x] = world.GenerateChunk(g.CenterX+x-len(row)/2, y)
-			}
-			g.World.Blocks[y] = newRow
-		}
-	}
-
+	// Use exact browser window dimensions - no chunks, just pixel-perfect sizing
+	// This ensures the game world matches exactly the browser window size
 	return outsideWidth, outsideHeight
 }
