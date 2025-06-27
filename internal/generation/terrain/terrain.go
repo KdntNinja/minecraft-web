@@ -120,38 +120,6 @@ func getBiome(x int) BiomeType {
 	return ForestBiome // Most common biome
 }
 
-// getSurfaceBlock returns the appropriate surface block for the biome
-func getSurfaceBlock(x int) block.BlockType {
-	biome := getBiome(x)
-
-	switch biome {
-	case DesertBiome:
-		return block.Sand
-	case SnowBiome:
-		return block.Snow
-	case ClayCanyonBiome:
-		return block.Clay
-	default:
-		return block.Grass
-	}
-}
-
-// shouldPlaceTree determines if a tree should be placed at this x coordinate
-func shouldPlaceTree(x int) bool {
-	initNoiseGenerators()
-
-	biome := getBiome(x)
-	if biome != ForestBiome {
-		return false // Only place trees in forest biome for now
-	}
-
-	// Simple tree placement using basic noise
-	treeNoise := surfaceNoise.Noise1D(float64(x) * 0.1)
-
-	// Trees need adequate spacing and some randomness
-	return treeNoise > 0.3 && (x%6 == 0 || x%7 == 0)
-}
-
 // getOreType determines what ore should be placed using enhanced noise
 func getOreType(x, y, depthFromSurface int) block.BlockType {
 	initNoiseGenerators()
