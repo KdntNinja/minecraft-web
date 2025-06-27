@@ -1,56 +1,41 @@
 package player
 
-// ApplyMovement handles horizontal movement physics with ground/air control differences
+import "github.com/KdntNinja/webcraft/engine/entity"
+
+// ApplyMovement handles horizontal movement physics using entity movement system
 func (p *Player) ApplyMovement(isMoving bool, targetVX float64) {
-	if isMoving {
-		if p.OnGround {
-			p.VX = targetVX // Instant ground acceleration
-		} else {
-			p.VX = p.VX*0.8 + targetVX*0.2 // Reduced air control (80% momentum + 20% input)
-		}
-	} else {
-		if p.OnGround {
-			p.VX *= GroundFriction // Apply ground friction
-		} else {
-			p.VX *= AirResistance // Minimal air resistance
-		}
+	p.AABB.ApplyHorizontalMovement(targetVX, GroundFriction, AirResistance, isMoving)
 
-		// Stop micro-movements to prevent jitter
-		if p.VX > -0.1 && p.VX < 0.1 {
-			p.VX = 0
-		}
+	// Apply velocity damping to prevent jitter when not moving
+	if !isMoving {
+		entity.DampVelocity(&p.VX, &p.VY, 0.1)
 	}
 }
 
-// HandleJump processes jump input with key state tracking to prevent spam
-func (p *Player) HandleJump(jumpKeyPressed bool) {
+// HandleJump processes jump input using entity input state tracking
+func (p *Player) HandleJump() {
 	// Only jump on fresh key press while grounded
-	if jumpKeyPressed && !p.jumpPressed && p.OnGround {
-		p.VY = JumpSpeed
-		p.OnGround = false
+	if p.InputState.CanJump() {
+		if p.AABB.Jump(JumpSpeed) {
+			// Jump was successful
+		}
 	}
-
-	p.jumpPressed = jumpKeyPressed // Track key state for next frame
 }
 
-// ApplyGravity handles gravity, fall speed limiting, and ground sticking
+// ApplyGravity handles gravity and fall physics with instant settling
 func (p *Player) ApplyGravity() {
-	// Update grounded time tracking
-	if p.OnGround {
-		p.lastGroundedTime = 0
-	} else {
-		p.lastGroundedTime++
+	// Stronger gravity near ground for instant settling
+	gravityToApply := Gravity
+	if p.VY > 0 && p.VY < 3.0 { // When falling slowly
+		gravityToApply = Gravity * 2.0 // Double gravity for quick settling
 	}
 
-	if !p.OnGround {
-		p.VY += Gravity // Apply gravity acceleration
+	// Update grounded time tracking
+	p.AABB.ApplyVerticalMovement(gravityToApply, MaxFallSpeed)
 
-		if p.VY > MaxFallSpeed {
-			p.VY = MaxFallSpeed // Cap fall speed
-		}
-	} else {
-		if p.VY > 0 {
-			p.VY = 0 // Stick to ground when landed
-		}
+	// Instant stabilization when on ground
+	if p.OnGround {
+		entity.StabilizePosition(&p.Y, 42)     // Snap to tile grid
+		entity.DampVelocity(&p.VX, &p.VY, 0.3) // Strong damping for instant settling
 	}
 }

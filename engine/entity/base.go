@@ -43,3 +43,27 @@ func (a *AABB) Update() {
 
 // Entities is a slice of all entities in the world
 type Entities []Entity
+
+// InputState tracks input state for entities
+type InputState struct {
+	JumpPressed      bool // Current jump key state
+	WasJumpPressed   bool // Previous jump key state
+	LastGroundedTime int  // Frames since last grounded
+}
+
+// UpdateInputState updates input state tracking
+func (i *InputState) UpdateInputState(jumpPressed bool, onGround bool) {
+	i.WasJumpPressed = i.JumpPressed
+	i.JumpPressed = jumpPressed
+
+	if onGround {
+		i.LastGroundedTime = 0
+	} else {
+		i.LastGroundedTime++
+	}
+}
+
+// CanJump checks if a fresh jump input was received
+func (i *InputState) CanJump() bool {
+	return i.JumpPressed && !i.WasJumpPressed
+}

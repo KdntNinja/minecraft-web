@@ -8,7 +8,7 @@ const (
 	Height       = block.TileSize * 2 // Player hitbox height (84px, 2 blocks tall)
 	MoveSpeed    = 4.3                // Horizontal movement speed in pixels/frame
 	JumpSpeed    = -12.0              // Initial jump velocity (negative = upward)
-	Gravity      = 0.8                // Gravity acceleration per frame
+	Gravity      = 0.7                // Gravity acceleration per frame
 	MaxFallSpeed = 15.0               // Terminal velocity cap
 
 	// Movement feel adjustments

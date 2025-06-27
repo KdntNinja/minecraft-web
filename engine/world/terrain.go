@@ -1,6 +1,8 @@
 package world
 
 import (
+	"time"
+
 	"github.com/KdntNinja/webcraft/engine/block"
 	"github.com/KdntNinja/webcraft/engine/noise"
 )
@@ -21,26 +23,33 @@ var (
 
 func initNoiseGenerators() {
 	if surfaceNoise == nil {
+		// Generate random seed based on current time for unique worlds each run
+		baseSeed := time.Now().UnixNano()
+
+		// Clear caches for fresh world generation
+		surfaceHeights = make(map[int]int)
+		chunkCache = make(map[string]block.Chunk)
+
 		// Surface terrain - smoother, larger features
-		surfaceNoise = noise.NewSimplexNoise(12345)
+		surfaceNoise = noise.NewSimplexNoise(baseSeed)
 
 		// Dirt layer - medium frequency transitions
-		dirtNoise = noise.NewSimplexNoise(67890)
+		dirtNoise = noise.NewSimplexNoise(baseSeed + 1000)
 
 		// Stone layer - higher frequency, more chaotic
-		stoneNoise = noise.NewSimplexNoise(54321)
+		stoneNoise = noise.NewSimplexNoise(baseSeed + 2000)
 
-		// Cave generation - creates caverns and tunnels
-		caveNoise = noise.NewSimplexNoise(98765)
+		// Cave generation - organic cave systems
+		caveNoise = noise.NewSimplexNoise(baseSeed + 3000)
 
-		// Ore distribution - for placing ore veins
-		oreNoise = noise.NewSimplexNoise(11111)
+		// Ore distribution - rare mineral veins
+		oreNoise = noise.NewSimplexNoise(baseSeed + 4000)
 
-		// Biome distribution - determines surface biomes
-		biomeNoise = noise.NewSimplexNoise(22222)
+		// Biome distribution - large scale climate zones
+		biomeNoise = noise.NewSimplexNoise(baseSeed + 5000)
 
-		// Underworld generation - for hell layer
-		underworldNoise = noise.NewSimplexNoise(33333)
+		// Underworld generation - chaotic hellish terrain
+		underworldNoise = noise.NewSimplexNoise(baseSeed + 6000)
 	}
 }
 
@@ -186,4 +195,20 @@ func isInCave(x, y int) bool {
 // isUnderworld checks if we're in the underworld layer
 func isUnderworld(y, worldHeight int) bool {
 	return y > worldHeight-6 // Bottom 6 layers are underworld
+}
+
+// ResetWorldGeneration forces regeneration with new random seeds
+func ResetWorldGeneration() {
+	// Reset all noise generators to nil to force regeneration with new seeds
+	surfaceNoise = nil
+	dirtNoise = nil
+	stoneNoise = nil
+	caveNoise = nil
+	oreNoise = nil
+	biomeNoise = nil
+	underworldNoise = nil
+
+	// Clear all caches
+	surfaceHeights = make(map[int]int)
+	chunkCache = make(map[string]block.Chunk)
 }

@@ -32,6 +32,9 @@ func NewGame() *Game {
 	g.playerImage = ebiten.NewImage(player.Width, player.Height)
 	g.playerImage.Fill(color.RGBA{255, 255, 0, 255}) // Yellow
 
+	// Reset world generation to ensure new random seed each game
+	world.ResetWorldGeneration()
+
 	// Create a simple world with fixed size
 	g.World = world.NewWorld(20, 0) // Create world with 20 chunks vertically
 

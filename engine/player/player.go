@@ -6,9 +6,8 @@ import (
 
 type Player struct {
 	entity.AABB
-	lastGroundedTime int  // Frames since last grounded (for coyote time)
-	jumpPressed      bool // Track jump key state to prevent spam
-	wasOnGround      bool // Previous frame ground state
+	entity.InputState
+	wasOnGround bool // Previous frame ground state
 }
 
 func NewPlayer(x, y float64) *Player {
@@ -24,8 +23,12 @@ func (p *Player) Update() {
 
 	// Process input and update movement
 	isMoving, targetVX, jumpKeyPressed := p.HandleInput()
+
+	// Update input state tracking
+	p.InputState.UpdateInputState(jumpKeyPressed, p.OnGround)
+
 	p.ApplyMovement(isMoving, targetVX)
-	p.HandleJump(jumpKeyPressed)
+	p.HandleJump()
 	p.ApplyGravity()
 }
 
