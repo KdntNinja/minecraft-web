@@ -5,7 +5,6 @@ go 1.23.0
 toolchain go1.24.3
 
 require (
-	github.com/aquilax/go-perlin v1.1.0
 	github.com/hajimehoshi/ebiten/v2 v2.8.8
 )
 

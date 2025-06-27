@@ -5,85 +5,32 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 
-	"github.com/KdntNinja/webcraft/engine/block"
-	"github.com/KdntNinja/webcraft/engine/loading"
 	"github.com/KdntNinja/webcraft/engine/player"
 	"github.com/KdntNinja/webcraft/engine/render"
 	"github.com/KdntNinja/webcraft/engine/world"
 )
 
 type Game struct {
-	World          *world.World
-	LoadedChunks   map[string]bool        // Track loaded chunks for efficient management
-	CenterChunkX   int                    // Current center chunk X coordinate
-	CenterChunkY   int                    // Current center chunk Y coordinate
-	LastScreenW    int                    // Cache last screen width
-	LastScreenH    int                    // Cache last screen height
-	ChunksPerFrame int                    // Limit chunks generated per frame
-	CameraX        float64                // Camera X position
-	CameraY        float64                // Camera Y position
-	LoadDistance   int                    // Distance in chunks to load around player
-	UnloadDistance int                    // Distance in chunks to unload from player
-	LoadingScreen  *loading.LoadingScreen // Loading screen for initial setup
-	IsLoading      bool                   // Whether we're still in loading phase
+	World       *world.World
+	LastScreenW int     // Cache last screen width
+	LastScreenH int     // Cache last screen height
+	CameraX     float64 // Camera X position
+	CameraY     float64 // Camera Y position
 }
 
 func NewGame() *Game {
 	g := &Game{
-		LoadedChunks:   make(map[string]bool),
-		CenterChunkX:   0,
-		CenterChunkY:   0,
-		LastScreenW:    800, // Default screen width
-		LastScreenH:    600, // Default screen height
-		ChunksPerFrame: 1,   // Generate only 1 chunk per frame for smooth performance
-		LoadDistance:   3,   // Load chunks within 3 chunk radius (much smaller)
-		UnloadDistance: 6,   // Unload chunks beyond 6 chunk radius
-		LoadingScreen:  loading.NewLoadingScreen(),
-		IsLoading:      true,
+		LastScreenW: 800, // Default screen width
+		LastScreenH: 600, // Default screen height
 	}
+
+	// Create a simple world with fixed size
+	g.World = world.NewWorld(20, 0) // Create world with 20 chunks vertically
 
 	return g
 }
 
-// markInitialChunksAsLoaded marks the initially generated chunks as loaded
-func (g *Game) markInitialChunksAsLoaded() {
-	if g.World == nil {
-		return
-	}
-	for y := 0; y < len(g.World.Blocks); y++ {
-		for x := 0; x < len(g.World.Blocks[y]); x++ {
-			chunkX, chunkY := g.arrayToWorldCoords(x, y)
-			g.LoadedChunks[chunkKey(chunkX, chunkY)] = true
-		}
-	}
-}
-
 func (g *Game) Update() error {
-	// Handle loading phase
-	if g.IsLoading {
-		g.LoadingScreen.Update()
-		if g.LoadingScreen.IsComplete() {
-			// Loading complete, transfer world and setup camera
-			g.World = g.LoadingScreen.GetWorld()
-			g.IsLoading = false
-
-			// Initialize camera position based on player position
-			if len(g.World.Entities) > 0 {
-				if player, ok := g.World.Entities[0].(*player.Player); ok {
-					g.CameraX = player.X + float64(player.Width)/2 - float64(g.LastScreenW)/2
-					g.CameraY = player.Y + float64(player.Height)/2 - float64(g.LastScreenH)/2
-					g.CenterChunkX = int(player.X) / (block.ChunkWidth * block.TileSize)
-					g.CenterChunkY = int(player.Y) / (block.ChunkHeight * block.TileSize)
-				}
-			}
-
-			// Mark initial chunks as loaded
-			g.markInitialChunksAsLoaded()
-		}
-		return nil
-	}
-
-	// Normal game update logic
 	if g.World == nil {
 		return nil
 	}
@@ -99,7 +46,7 @@ func (g *Game) Update() error {
 		}
 	}
 
-	// Update camera to follow player and manage chunk loading
+	// Update camera to follow player
 	if len(g.World.Entities) > 0 {
 		if player, ok := g.World.Entities[0].(*player.Player); ok {
 			// Smooth camera following with some easing
@@ -110,19 +57,6 @@ func (g *Game) Update() error {
 			lerpFactor := 0.1
 			g.CameraX += (targetCameraX - g.CameraX) * lerpFactor
 			g.CameraY += (targetCameraY - g.CameraY) * lerpFactor
-
-			// Update center chunk based on player position
-			newCenterChunkX := int(player.X) / (block.ChunkWidth * block.TileSize)
-			newCenterChunkY := int(player.Y) / (block.ChunkHeight * block.TileSize)
-
-			// Load new chunks if player moved to a different chunk
-			if newCenterChunkX != g.CenterChunkX || newCenterChunkY != g.CenterChunkY {
-				g.CenterChunkX = newCenterChunkX
-				g.CenterChunkY = newCenterChunkY
-			}
-
-			// Always try to load chunks gradually (limited per frame)
-			g.loadChunksAroundPlayer()
 		}
 	}
 
@@ -130,20 +64,9 @@ func (g *Game) Update() error {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-	// Show loading screen while loading
-	if g.IsLoading {
-		g.LoadingScreen.Draw(screen)
-		return
-	}
-
-	// Normal game rendering
 	if g.World == nil {
 		return
 	}
-
-	// Apply camera transform
-	var cameraOp ebiten.DrawImageOptions
-	cameraOp.GeoM.Translate(-g.CameraX, -g.CameraY)
 
 	// Create a temporary image for world rendering
 	worldImg := ebiten.NewImage(screen.Bounds().Dx(), screen.Bounds().Dy())

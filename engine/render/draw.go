@@ -6,26 +6,29 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 
 	"github.com/KdntNinja/webcraft/engine/block"
-	"github.com/KdntNinja/webcraft/engine/world"
 )
 
 var (
-	tileImages    map[world.BlockType]*ebiten.Image
+	tileImages    map[block.BlockType]*ebiten.Image
 	batchRenderer *ebiten.DrawImageOptions // Reuse draw options to reduce allocations
 )
 
 func initTileImages() {
-	tileImages = make(map[world.BlockType]*ebiten.Image)
+	tileImages = make(map[block.BlockType]*ebiten.Image)
 	batchRenderer = &ebiten.DrawImageOptions{}
 
-	for _, t := range []world.BlockType{world.Grass, world.Dirt, world.Stone, world.Air} {
+	// Create tile images for all block types
+	for blockType := block.Air; blockType <= block.Lava; blockType++ {
+		if blockType == block.Air {
+			continue // Skip air blocks
+		}
 		tile := ebiten.NewImage(block.TileSize, block.TileSize)
-		tile.Fill(BlockColor(t))
-		tileImages[t] = tile
+		tile.Fill(BlockColor(blockType))
+		tileImages[blockType] = tile
 	}
 }
 
-func Draw(g *[][]world.Chunk, screen *ebiten.Image) {
+func Draw(g *[][]block.Chunk, screen *ebiten.Image) {
 	if tileImages == nil {
 		initTileImages()
 	}
@@ -54,7 +57,7 @@ func Draw(g *[][]world.Chunk, screen *ebiten.Image) {
 					}
 
 					blockType := chunk[y][x]
-					if blockType == world.Air {
+					if blockType == block.Air {
 						continue // Skip air blocks
 					}
 
@@ -82,7 +85,7 @@ func Draw(g *[][]world.Chunk, screen *ebiten.Image) {
 }
 
 // DrawWithCamera renders the world with camera offset for following player
-func DrawWithCamera(g *[][]world.Chunk, screen *ebiten.Image, cameraX, cameraY float64) {
+func DrawWithCamera(g *[][]block.Chunk, screen *ebiten.Image, cameraX, cameraY float64) {
 	if tileImages == nil {
 		initTileImages()
 	}
@@ -92,9 +95,9 @@ func DrawWithCamera(g *[][]world.Chunk, screen *ebiten.Image, cameraX, cameraY f
 
 	// Calculate visible tile bounds based on camera position
 	startTileX := int(cameraX / float64(block.TileSize))
-	endTileX := int((cameraX + float64(screenWidth)) / float64(block.TileSize)) + 1
+	endTileX := int((cameraX+float64(screenWidth))/float64(block.TileSize)) + 1
 	startTileY := int(cameraY / float64(block.TileSize))
-	endTileY := int((cameraY + float64(screenHeight)) / float64(block.TileSize)) + 1
+	endTileY := int((cameraY+float64(screenHeight))/float64(block.TileSize)) + 1
 
 	// Ensure bounds are not negative
 	if startTileX < 0 {
@@ -119,7 +122,7 @@ func DrawWithCamera(g *[][]world.Chunk, screen *ebiten.Image, cameraX, cameraY f
 					}
 
 					blockType := chunk[y][x]
-					if blockType == world.Air {
+					if blockType == block.Air {
 						continue // Skip air blocks
 					}
 
@@ -148,16 +151,76 @@ func DrawWithCamera(g *[][]world.Chunk, screen *ebiten.Image, cameraX, cameraY f
 	}
 }
 
-func BlockColor(b world.BlockType) color.Color {
+func BlockColor(b block.BlockType) color.Color {
 	switch b {
-	case world.Grass:
-		return color.RGBA{106, 190, 48, 255}
-	case world.Dirt:
-		return color.RGBA{151, 105, 79, 255}
-	case world.Stone:
-		return color.RGBA{100, 100, 100, 255}
-	case world.Air:
-		return color.RGBA{135, 206, 235, 255}
+	// Surface blocks
+	case block.Grass:
+		return color.RGBA{106, 190, 48, 255} // Green
+	case block.Dirt:
+		return color.RGBA{151, 105, 79, 255} // Brown
+	case block.Sand:
+		return color.RGBA{238, 203, 173, 255} // Sandy yellow
+	case block.Clay:
+		return color.RGBA{168, 85, 65, 255} // Reddish brown
+	case block.Snow:
+		return color.RGBA{255, 255, 255, 255} // White
+	case block.Ice:
+		return color.RGBA{173, 216, 230, 255} // Light blue
+
+	// Stone variants
+	case block.Stone:
+		return color.RGBA{100, 100, 100, 255} // Gray
+	case block.Granite:
+		return color.RGBA{120, 120, 120, 255} // Light gray
+	case block.Marble:
+		return color.RGBA{245, 245, 245, 255} // Off-white
+	case block.Obsidian:
+		return color.RGBA{50, 50, 50, 255} // Dark gray/black
+
+	// Ore blocks
+	case block.CopperOre:
+		return color.RGBA{184, 115, 51, 255} // Orange-brown
+	case block.IronOre:
+		return color.RGBA{192, 192, 192, 255} // Silver
+	case block.SilverOre:
+		return color.RGBA{211, 211, 211, 255} // Light silver
+	case block.GoldOre:
+		return color.RGBA{255, 215, 0, 255} // Gold
+	case block.PlatinumOre:
+		return color.RGBA{229, 228, 226, 255} // Platinum white
+
+	// Underground blocks
+	case block.Mud:
+		return color.RGBA{101, 67, 33, 255} // Dark brown
+	case block.Ash:
+		return color.RGBA{128, 128, 128, 255} // Gray
+	case block.Silt:
+		return color.RGBA{139, 119, 101, 255} // Grayish brown
+
+	// Cave blocks
+	case block.Cobweb:
+		return color.RGBA{220, 220, 220, 128} // Semi-transparent gray
+
+	// Hell/Underworld blocks
+	case block.Hellstone:
+		return color.RGBA{139, 0, 0, 255} // Dark red
+	case block.HellstoneOre:
+		return color.RGBA{255, 69, 0, 255} // Orange-red
+
+	// Tree blocks
+	case block.Wood:
+		return color.RGBA{139, 69, 19, 255} // Saddle brown
+	case block.Leaves:
+		return color.RGBA{34, 139, 34, 255} // Forest green
+
+	// Liquids
+	case block.Water:
+		return color.RGBA{0, 191, 255, 180} // Semi-transparent blue
+	case block.Lava:
+		return color.RGBA{255, 69, 0, 255} // Orange-red
+
+	case block.Air:
+		return color.RGBA{135, 206, 235, 255} // Sky blue
 	}
 	return color.Black
 }

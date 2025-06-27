@@ -1,0 +1,213 @@
+package noise
+
+import (
+	"math"
+)
+
+// SimplexNoise implements a simplified version of simplex noise for terrain generation
+type SimplexNoise struct {
+	perm []int
+	seed int64
+}
+
+// NewSimplexNoise creates a new SimplexNoise generator with the given seed
+func NewSimplexNoise(seed int64) *SimplexNoise {
+	sn := &SimplexNoise{
+		seed: seed,
+		perm: make([]int, 512),
+	}
+
+	// Initialize permutation table based on seed
+	for i := 0; i < 256; i++ {
+		sn.perm[i] = i
+	}
+
+	// Shuffle the permutation table using the seed
+	rng := newLCG(seed)
+	for i := 255; i > 0; i-- {
+		j := int(rng.next() % int64(i+1))
+		sn.perm[i], sn.perm[j] = sn.perm[j], sn.perm[i]
+	}
+
+	// Duplicate the permutation table
+	for i := 0; i < 256; i++ {
+		sn.perm[256+i] = sn.perm[i]
+	}
+
+	return sn
+}
+
+// Linear Congruential Generator for reproducible randomness
+type lcg struct {
+	state int64
+}
+
+func newLCG(seed int64) *lcg {
+	return &lcg{state: seed}
+}
+
+func (l *lcg) next() int64 {
+	l.state = (l.state*1664525 + 1013904223) & 0x7FFFFFFF
+	return l.state
+}
+
+// Noise1D generates 1D noise value between -1 and 1
+func (sn *SimplexNoise) Noise1D(x float64) float64 {
+	// Scale the input
+	x *= 0.5
+
+	// Get the integer part
+	i := int(math.Floor(x))
+
+	// Get the fractional part
+	f := x - float64(i)
+
+	// Smooth the fractional part using smoothstep function
+	u := f * f * (3.0 - 2.0*f)
+
+	// Get permutation indices
+	a := sn.perm[i&255]
+	b := sn.perm[(i+1)&255]
+
+	// Generate gradient values
+	ga := gradient1D(a, f)
+	gb := gradient1D(b, f-1.0)
+
+	// Interpolate between the two gradient values
+	return lerp(ga, gb, u)
+}
+
+// Noise2D generates 2D noise value between -1 and 1
+func (sn *SimplexNoise) Noise2D(x, y float64) float64 {
+	// Scale the input
+	x *= 0.5
+	y *= 0.5
+
+	// Get the integer parts
+	ix := int(math.Floor(x))
+	iy := int(math.Floor(y))
+
+	// Get the fractional parts
+	fx := x - float64(ix)
+	fy := y - float64(iy)
+
+	// Smooth the fractional parts
+	ux := fx * fx * (3.0 - 2.0*fx)
+	uy := fy * fy * (3.0 - 2.0*fy)
+
+	// Get permutation indices for the four corners
+	a := sn.perm[ix&255] + iy
+	b := sn.perm[(ix+1)&255] + iy
+
+	aa := sn.perm[a&255]
+	ab := sn.perm[(a+1)&255]
+	ba := sn.perm[b&255]
+	bb := sn.perm[(b+1)&255]
+
+	// Generate gradient values for the four corners
+	g1 := gradient2D(aa, fx, fy)
+	g2 := gradient2D(ba, fx-1.0, fy)
+	g3 := gradient2D(ab, fx, fy-1.0)
+	g4 := gradient2D(bb, fx-1.0, fy-1.0)
+
+	// Interpolate
+	i1 := lerp(g1, g2, ux)
+	i2 := lerp(g3, g4, ux)
+
+	return lerp(i1, i2, uy)
+}
+
+// FractalNoise generates fractal noise by combining multiple octaves
+func (sn *SimplexNoise) FractalNoise1D(x float64, octaves int, frequency, amplitude, persistence float64) float64 {
+	value := 0.0
+	maxValue := 0.0
+
+	for i := 0; i < octaves; i++ {
+		value += sn.Noise1D(x*frequency) * amplitude
+		maxValue += amplitude
+
+		frequency *= 2.0
+		amplitude *= persistence
+	}
+
+	return value / maxValue
+}
+
+// FractalNoise2D generates 2D fractal noise
+func (sn *SimplexNoise) FractalNoise2D(x, y float64, octaves int, frequency, amplitude, persistence float64) float64 {
+	value := 0.0
+	maxValue := 0.0
+
+	for i := 0; i < octaves; i++ {
+		value += sn.Noise2D(x*frequency, y*frequency) * amplitude
+		maxValue += amplitude
+
+		frequency *= 2.0
+		amplitude *= persistence
+	}
+
+	return value / maxValue
+}
+
+// Helper functions
+func gradient1D(hash int, x float64) float64 {
+	// Simple gradient function for 1D
+	return float64((hash&1)*2-1) * x
+}
+
+func gradient2D(hash int, x, y float64) float64 {
+	// Simple gradient function for 2D using predefined vectors
+	h := hash & 3
+	switch h {
+	case 0:
+		return x + y
+	case 1:
+		return -x + y
+	case 2:
+		return x - y
+	default:
+		return -x - y
+	}
+}
+
+func lerp(a, b, t float64) float64 {
+	return a + t*(b-a)
+}
+
+// RidgedNoise creates ridged noise (useful for mountain ridges)
+func (sn *SimplexNoise) RidgedNoise1D(x float64, octaves int, frequency, amplitude float64) float64 {
+	value := 0.0
+	maxValue := 0.0
+
+	for i := 0; i < octaves; i++ {
+		n := math.Abs(sn.Noise1D(x * frequency))
+		n = 1.0 - n // Invert to create ridges
+		n = n * n   // Square to sharpen ridges
+
+		value += n * amplitude
+		maxValue += amplitude
+
+		frequency *= 2.0
+		amplitude *= 0.5
+	}
+
+	return (value/maxValue)*2.0 - 1.0
+}
+
+// BillowNoise creates billowy noise (useful for clouds, hills)
+func (sn *SimplexNoise) BillowNoise1D(x float64, octaves int, frequency, amplitude float64) float64 {
+	value := 0.0
+	maxValue := 0.0
+
+	for i := 0; i < octaves; i++ {
+		n := math.Abs(sn.Noise1D(x * frequency))
+
+		value += n * amplitude
+		maxValue += amplitude
+
+		frequency *= 2.0
+		amplitude *= 0.5
+	}
+
+	return (value/maxValue)*2.0 - 1.0
+}

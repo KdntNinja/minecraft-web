@@ -6,19 +6,8 @@ import (
 	"github.com/KdntNinja/webcraft/engine/player"
 )
 
-type BlockType int
-
-const (
-	Air BlockType = iota
-	Grass
-	Dirt
-	Stone
-)
-
-type Chunk [block.ChunkHeight][block.ChunkWidth]BlockType
-
 type World struct {
-	Blocks    [][]Chunk // [vertical][horizontal] for multiple columns
+	Blocks    [][]block.Chunk // [vertical][horizontal] for multiple columns
 	Entities  entity.Entities
 	MinChunkX int // Minimum chunk X coordinate in the world grid
 	MinChunkY int // Minimum chunk Y coordinate in the world grid
@@ -26,19 +15,19 @@ type World struct {
 
 // NewWorld constructs a new World instance with generated chunks
 func NewWorld(numChunksY int, centerChunkX int) *World {
-	width := 5 // 2 chunks left, 1 center, 2 right
-	blocks := make([][]Chunk, numChunksY)
+	width := 7 // 3 chunks left, 1 center, 3 right
+	blocks := make([][]block.Chunk, numChunksY)
 	for cy := 0; cy < numChunksY; cy++ {
-		blocks[cy] = make([]Chunk, width)
+		blocks[cy] = make([]block.Chunk, width)
 		for cx := 0; cx < width; cx++ {
-			chunkX := centerChunkX + cx - 2
+			chunkX := centerChunkX + cx - 3 // -3 to +3 relative to center
 			blocks[cy][cx] = GenerateChunk(chunkX, cy)
 		}
 	}
 	w := &World{
 		Blocks:    blocks,
 		Entities:  entity.Entities{},
-		MinChunkX: centerChunkX - 2, // Start with -2 offset
+		MinChunkX: centerChunkX - 3, // Start with -3 offset
 		MinChunkY: 0,                // Start at Y=0
 	}
 	// Add player entity at center
@@ -123,7 +112,7 @@ func (w *World) ToIntGrid() [][]int {
 
 			// Bounds check for cx
 			if cx >= len(w.Blocks[cy]) {
-				grid[y][x] = int(Air) // Default to air if chunk doesn't exist
+				grid[y][x] = int(block.Air) // Default to air if chunk doesn't exist
 				continue
 			}
 
