@@ -51,30 +51,25 @@ func getSurfaceHeight(x int) int {
 	}
 	initNoiseGenerators()
 
-	// Use hybrid terrain generation combining Minecraft and Terraria styles
+	// Use fast terrain generation for better performance
 	baseHeight := 12 // Base terrain height
 
-	// Generate hybrid terrain
-	terrainNoise := surfaceNoise.HybridTerrainNoise(float64(x))
+	// Generate optimized terrain for low-end hardware
+	terrainNoise := surfaceNoise.FastTerrainNoise(float64(x))
 
-	// Different terrain variations based on biome
+	// Simplified biome-based terrain variations
 	biome := getBiome(x)
 	var heightVariation int
 
 	switch biome {
 	case DesertBiome:
-		// Desert: Minecraft-style flat with some dunes
 		heightVariation = int(terrainNoise * 3) // Flatter terrain
 	case SnowBiome:
-		// Snow: More Terraria-style mountains with ridges
-		ridgeNoise := surfaceNoise.RidgedNoise1D(float64(x), 2, 0.015, 1.0)
-		heightVariation = int(terrainNoise*5 + ridgeNoise*3) // Mountain-like terrain
+		heightVariation = int(terrainNoise * 6) // Mountain-like terrain
 	case ClayCanyonBiome:
-		// Clay Canyon: Mix of both styles
 		heightVariation = int(terrainNoise * 4) // Canyon-like terrain
 	default: // Forest
-		// Forest: Minecraft-style rolling hills
-		heightVariation = int(terrainNoise * 4) // Gentler rolling hills
+		heightVariation = int(terrainNoise * 4) // Rolling hills
 	}
 
 	height := baseHeight + heightVariation
@@ -101,22 +96,22 @@ const (
 	ClayCanyonBiome
 )
 
-// getBiome determines the biome at a given x coordinate using Terraria-like distribution
+// getBiome determines the biome at a given x coordinate using fast noise
 func getBiome(x int) BiomeType {
 	initNoiseGenerators()
 
-	// Use Terraria-style biome noise for more natural biome distribution
-	biomeNoise := biomeNoise.TerrariaBiomeNoise(float64(x))
+	// Use simple noise for better performance
+	biomeNoise := biomeNoise.Noise1D(float64(x) * 0.005) // Simplified scale
 
-	// Terraria-like biome thresholds with more forest (default biome)
-	if biomeNoise < -0.4 {
+	// Simplified biome thresholds
+	if biomeNoise < -0.3 {
 		return DesertBiome
-	} else if biomeNoise > 0.5 {
+	} else if biomeNoise > 0.4 {
 		return SnowBiome
-	} else if biomeNoise > 0.2 && biomeNoise < 0.35 {
+	} else if biomeNoise > 0.1 {
 		return ClayCanyonBiome
 	}
-	return ForestBiome // Most common biome like in Terraria
+	return ForestBiome // Most common biome
 }
 
 // getSurfaceBlock returns the appropriate surface block for the biome
@@ -151,56 +146,28 @@ func shouldPlaceTree(x int) bool {
 	return treeNoise > 0.3 && (x%6 == 0 || x%7 == 0)
 }
 
-// getOreType determines what ore should be placed based on depth and Terraria-like noise
+// getOreType determines what ore should be placed using fast noise
 func getOreType(x, y, depthFromSurface int) block.BlockType {
 	initNoiseGenerators()
 
-	// Use Terraria-style ore generation with different patterns for each ore
+	// Use fast ore generation for better performance
+	oreNoiseValue := oreNoise.FastOreNoise(float64(x), float64(y))
 
-	// Copper ore - most common, shallow
-	if depthFromSurface > 3 {
-		copperNoise := oreNoise.TerrariaOreNoise(float64(x), float64(y), 0)
-		if copperNoise > 0 && depthFromSurface < 20 {
-			return block.CopperOre
-		}
-	}
-
-	// Iron ore - medium depth, medium rarity
-	if depthFromSurface > 8 {
-		ironNoise := oreNoise.TerrariaOreNoise(float64(x), float64(y), 1)
-		if ironNoise > 0 && depthFromSurface < 30 {
-			return block.IronOre
-		}
-	}
-
-	// Silver ore - deeper, less common
-	if depthFromSurface > 12 {
-		silverNoise := oreNoise.TerrariaOreNoise(float64(x), float64(y), 2)
-		if silverNoise > 0 && depthFromSurface < 35 {
-			return block.SilverOre
-		}
-	}
-
-	// Gold ore - deep, rare
-	if depthFromSurface > 15 {
-		goldNoise := oreNoise.TerrariaOreNoise(float64(x), float64(y), 3)
-		if goldNoise > 0 {
-			return block.GoldOre
-		}
-	}
-
-	// Platinum ore - very deep, very rare
-	if depthFromSurface > 25 {
-		platinumNoise := oreNoise.TerrariaOreNoise(float64(x), float64(y), 4)
-		if platinumNoise > 0 {
-			return block.PlatinumOre
-		}
+	// Simplified ore distribution based on depth only
+	if depthFromSurface > 25 && oreNoiseValue > 0.8 {
+		return block.GoldOre
+	} else if depthFromSurface > 20 && oreNoiseValue > 0.75 {
+		return block.SilverOre
+	} else if depthFromSurface > 15 && oreNoiseValue > 0.7 {
+		return block.IronOre
+	} else if depthFromSurface > 8 && oreNoiseValue > 0.65 {
+		return block.CopperOre
 	}
 
 	return block.Stone // Default to stone
 }
 
-// isInCave determines if a position should be a cave using hybrid approach
+// isInCave determines if a position should be a cave using fast approach
 func isInCave(x, y int) bool {
 	initNoiseGenerators()
 
@@ -209,20 +176,11 @@ func isInCave(x, y int) bool {
 		return false
 	}
 
-	// Use hybrid cave noise combining Minecraft and Terraria styles
-	caveNoiseValue := caveNoise.HybridCaveNoise(float64(x), float64(y))
+	// Use fast cave noise for better performance
+	caveNoiseValue := caveNoise.FastCaveNoise(float64(x), float64(y))
 
-	// Different cave thresholds for different depths
-	var threshold float64
-	if y > 40 { // Deep underground - larger caverns
-		threshold = -0.3
-	} else if y > 20 { // Medium depth - medium caves
-		threshold = -0.4
-	} else { // Shallow - small tunnels
-		threshold = -0.5
-	}
-
-	return caveNoiseValue < threshold
+	// Simple cave threshold - no depth variation for performance
+	return caveNoiseValue < -0.5
 }
 
 // isUnderworld checks if we're in the underworld layer

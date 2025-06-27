@@ -133,10 +133,15 @@ func (sn *SimplexNoise) FractalNoise1D(x float64, octaves int, frequency, amplit
 	return value / maxValue
 }
 
-// FractalNoise2D generates 2D fractal noise
+// FractalNoise2D generates 2D fractal noise - optimized for performance
 func (sn *SimplexNoise) FractalNoise2D(x, y float64, octaves int, frequency, amplitude, persistence float64) float64 {
 	value := 0.0
 	maxValue := 0.0
+
+	// Limit octaves for performance on low-end hardware
+	if octaves > 3 {
+		octaves = 3
+	}
 
 	for i := 0; i < octaves; i++ {
 		value += sn.Noise2D(x*frequency, y*frequency) * amplitude
@@ -174,10 +179,37 @@ func lerp(a, b, t float64) float64 {
 	return a + t*(b-a)
 }
 
+// Optimized terrain generation functions for low-end hardware
+
+// FastTerrainNoise generates simple but fast terrain
+func (sn *SimplexNoise) FastTerrainNoise(x float64) float64 {
+	// Only use 2 octaves for speed
+	base := sn.Noise1D(x * 0.01)
+	detail := sn.Noise1D(x * 0.03) * 0.5
+	return base + detail
+}
+
+// FastCaveNoise generates simple cave patterns
+func (sn *SimplexNoise) FastCaveNoise(x, y float64) float64 {
+	// Single octave for maximum performance
+	return sn.Noise2D(x * 0.05, y * 0.08)
+}
+
+// FastOreNoise generates ore patterns with minimal computation
+func (sn *SimplexNoise) FastOreNoise(x, y float64) float64 {
+	// Very simple ore generation
+	return sn.Noise2D(x * 0.1, y * 0.1)
+}
+
 // RidgedNoise1D creates ridged noise (useful for mountain ridges)
 func (sn *SimplexNoise) RidgedNoise1D(x float64, octaves int, frequency, amplitude float64) float64 {
 	value := 0.0
 	maxValue := 0.0
+
+	// Limit octaves for performance
+	if octaves > 2 {
+		octaves = 2
+	}
 
 	for i := 0; i < octaves; i++ {
 		n := math.Abs(sn.Noise1D(x * frequency))
@@ -197,32 +229,32 @@ func (sn *SimplexNoise) RidgedNoise1D(x float64, octaves int, frequency, amplitu
 // MinecraftTerrainNoise generates Minecraft-like terrain with smoother hills
 func (sn *SimplexNoise) MinecraftTerrainNoise(x float64) float64 {
 	// Minecraft-style terrain with gentler slopes
-	continentNoise := sn.FractalNoise1D(x, 3, 0.003, 1.0, 0.5) // Continental shape
-	hillNoise := sn.FractalNoise1D(x, 4, 0.015, 0.6, 0.6)      // Rolling hills
-	detailNoise := sn.FractalNoise1D(x, 2, 0.08, 0.2, 0.4)     // Fine details
+	continental := sn.Noise1D(x * 0.005) * 0.8 // Continental shape
+	hills := sn.Noise1D(x * 0.02) * 0.3         // Rolling hills
+	details := sn.Noise1D(x * 0.08) * 0.1       // Fine details
 
-	return continentNoise + hillNoise + detailNoise
+	return continental + hills + details
 }
 
 // HybridTerrainNoise combines Minecraft smoothness with Terraria variety
 func (sn *SimplexNoise) HybridTerrainNoise(x float64) float64 {
 	// Get both terrain types
-	minecraftTerrain := sn.MinecraftTerrainNoise(x)
-	terrariaTerrain := sn.TerrariaTerrainNoise(x)
+	minecraft := sn.MinecraftTerrainNoise(x)
+	terraria := sn.TerrariaTerrainNoise(x)
 
 	// Blend them based on position for variety
-	blendNoise := sn.Noise1D(x*0.001)*0.5 + 0.5 // 0 to 1
+	blendFactor := (sn.Noise1D(x * 0.003) + 1.0) * 0.5 // 0 to 1
 
 	// More Minecraft-like in some areas, more Terraria-like in others
-	return minecraftTerrain*0.7 + terrariaTerrain*0.3 + (terrariaTerrain-minecraftTerrain)*blendNoise*0.3
+	return minecraft*(1.0-blendFactor) + terraria*blendFactor
 }
 
 // TerrariaTerrainNoise generates Terraria-like surface terrain with hills and valleys
 func (sn *SimplexNoise) TerrariaTerrainNoise(x float64) float64 {
 	// Base terrain using multiple octaves like Terraria
-	largeTerrain := sn.FractalNoise1D(x, 4, 0.008, 1.0, 0.6) // Large landmasses
-	mediumTerrain := sn.FractalNoise1D(x, 3, 0.02, 0.5, 0.5) // Hills
-	smallTerrain := sn.FractalNoise1D(x, 2, 0.05, 0.25, 0.4) // Small details
+	largeTerrain := sn.Noise1D(x * 0.008)  // Large landmasses
+	mediumTerrain := sn.Noise1D(x * 0.02) * 0.5 // Hills
+	smallTerrain := sn.Noise1D(x * 0.05) * 0.25 // Small details
 
 	return largeTerrain + mediumTerrain + smallTerrain
 }
@@ -230,28 +262,28 @@ func (sn *SimplexNoise) TerrariaTerrainNoise(x float64) float64 {
 // HybridCaveNoise creates caves that blend Minecraft and Terraria styles
 func (sn *SimplexNoise) HybridCaveNoise(x, y float64) float64 {
 	// Minecraft-style caves - more horizontal tunnels
-	minecraftCaves := sn.FractalNoise2D(x, y*0.3, 3, 0.02, 1.0, 0.5)
+	minecraft := sn.Noise2D(x * 0.04, y * 0.02)
 
 	// Terraria-style caves - more varied
-	terrariaCaves := sn.TerrariaCaveNoise(x, y)
+	terraria := sn.TerrariaCaveNoise(x, y)
 
 	// Combine them
-	return minecraftCaves*0.6 + terrariaCaves*0.4
+	return (minecraft + terraria) * 0.5
 }
 
 // TerrariaCaveNoise generates cave patterns similar to Terraria
 func (sn *SimplexNoise) TerrariaCaveNoise(x, y float64) float64 {
 	// Primary cave tunnels - horizontal bias
-	primaryCaves := sn.FractalNoise2D(x, y*0.5, 3, 0.01, 1.0, 0.5)
+	primaryCaves := sn.Noise2D(x * 0.03, y * 0.015)
 
 	// Secondary cave systems - more chaotic
-	secondaryCaves := sn.FractalNoise2D(x*1.5, y, 2, 0.02, 0.7, 0.6)
+	secondaryCaves := sn.Noise2D(x * 0.06, y * 0.04) * 0.7
 
 	// Large caverns - rare but spacious
-	largeCaverns := sn.FractalNoise2D(x*0.3, y*0.3, 2, 0.005, 1.2, 0.4)
+	largeCaverns := sn.Noise2D(x * 0.01, y * 0.008) * 1.2
 
 	// Combine cave systems
-	return primaryCaves + secondaryCaves*0.8 + largeCaverns*0.6
+	return primaryCaves + secondaryCaves + largeCaverns*0.6
 }
 
 // TerrariaOreNoise generates ore vein patterns like Terraria
