@@ -1,22 +1,45 @@
 package entity
 
-type EntityBase struct {
-	X, Y          float64
-	VX, VY        float64
-	Width, Height int
+// Entity interface that all game objects must implement
+type Entity interface {
+	Update()
+	CollideBlocks(blocks [][]int)
+	ClampX(min, max float64)
+	GetPosition() (float64, float64)
+	SetPosition(x, y float64)
 }
 
-func (e *EntityBase) GetPosition() (float64, float64) {
-	return e.X, e.Y
+// AABB (Axis-Aligned Bounding Box) for collision detection and physics
+type AABB struct {
+	X, Y          float64 // Position in world coordinates
+	Width, Height int     // Size in pixels
+	VX, VY        float64 // Velocity in pixels per frame
+	OnGround      bool    // Whether entity is touching ground
 }
 
-func (e *EntityBase) SetPosition(x, y float64) {
-	e.X = x
-	e.Y = y
+// Entity interface implementations for AABB
+
+func (a *AABB) ClampX(min, max float64) {
+	if a.X < min {
+		a.X = min
+	}
+	if a.X > max {
+		a.X = max
+	}
 }
 
-func (e *EntityBase) Update() {}
+func (a *AABB) GetPosition() (float64, float64) {
+	return a.X, a.Y
+}
 
-// Entities slice for world
+func (a *AABB) SetPosition(x, y float64) {
+	a.X = x
+	a.Y = y
+}
 
+func (a *AABB) Update() {
+	// Default empty implementation - override in specific entities
+}
+
+// Entities is a slice of all entities in the world
 type Entities []Entity

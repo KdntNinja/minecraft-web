@@ -11,9 +11,9 @@ import (
 func main() {
 	log.Println("Starting Webcraft...")
 
-	// Set performance options for lower-end hardware
-	ebiten.SetVsyncEnabled(true) // Enable VSync to prevent screen tearing
-	ebiten.SetTPS(60)            // Limit to 60 TPS for consistent performance
+	// Graphics settings for performance
+	ebiten.SetVsyncEnabled(true) // Prevent screen tearing
+	ebiten.SetTPS(60)            // 60 ticks per second
 
 	g := game.NewGame()
 	if err := ebiten.RunGame(g); err != nil {
