@@ -5,9 +5,9 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 
-	"github.com/KdntNinja/webcraft/internal/player"
-	"github.com/KdntNinja/webcraft/internal/render"
-	"github.com/KdntNinja/webcraft/internal/world"
+	"github.com/KdntNinja/webcraft/internal/gameplay/player"
+	"github.com/KdntNinja/webcraft/internal/gameplay/world"
+	"github.com/KdntNinja/webcraft/internal/systems/rendering/render"
 )
 
 type Game struct {
@@ -31,9 +31,6 @@ func NewGame() *Game {
 	// Pre-allocate player image to avoid recreating it every frame
 	g.playerImage = ebiten.NewImage(player.Width, player.Height)
 	g.playerImage.Fill(color.RGBA{255, 255, 0, 255}) // Yellow
-
-	// Reset world generation to ensure new random seed each game
-	world.ResetWorldGeneration()
 
 	// Create a simple world with fixed size
 	g.World = world.NewWorld(20, 0) // Create world with 20 chunks vertically

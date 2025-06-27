@@ -32,10 +32,10 @@ func (sn *SimplexNoise) TerrariaOreNoise(x, y float64, oreType int) float64 {
 
 	// Seed-based ore pattern variation
 	seedOffset := float64(sn.seed%1000) * 0.001
-	
+
 	oreNoise := sn.FractalNoise2D(x+seedOffset, y-seedOffset, 3, scale, 1.0, 0.5) // Base vein pattern
-	veinShape := sn.Noise2D(x*scale*2, y*scale*2) * 0.3     // Vein shape variation
-	
+	veinShape := sn.Noise2D(x*scale*2, y*scale*2) * 0.3                           // Vein shape variation
+
 	// Add seed-based vein character
 	veinCharacter := float64((sn.seed/int64(oreType+1))%100) / 100.0 * 0.1
 
@@ -46,10 +46,10 @@ func (sn *SimplexNoise) TerrariaOreNoise(x, y float64, oreType int) float64 {
 func (sn *SimplexNoise) EnhancedOreNoise(x, y float64, depthFromSurface int) int {
 	// Seed-based ore variation
 	seedVar := float64(sn.seed%555) * 0.001
-	
+
 	// Base ore noise
 	oreNoise := sn.FractalNoise2D(x+seedVar, y-seedVar, 2, 0.08, 1.0, 0.6)
-	
+
 	// Depth-based ore type determination
 	switch {
 	case depthFromSurface > 30:

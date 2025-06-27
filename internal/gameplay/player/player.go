@@ -1,7 +1,7 @@
 package player
 
 import (
-	"github.com/KdntNinja/webcraft/internal/entity"
+	"github.com/KdntNinja/webcraft/internal/core/physics/entity"
 )
 
 type Player struct {

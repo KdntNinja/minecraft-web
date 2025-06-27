@@ -1,34 +1,18 @@
-package world
+package terrain
 
 import (
 	"fmt"
 
-	"github.com/KdntNinja/webcraft/internal/block"
-)
-
-var (
-	// Increase cache size for better performance
-	maxCacheSize = 100
+	"github.com/KdntNinja/webcraft/internal/core/engine/block"
 )
 
 func GenerateChunk(chunkX, chunkY int) block.Chunk {
 	// Check cache first to avoid regenerating identical chunks
-	cacheKey := fmt.Sprintf("%d,%d", chunkX, chunkY)
-	if cached, exists := chunkCache[cacheKey]; exists {
+	if cached, exists := getCachedChunk(chunkX, chunkY); exists {
 		return cached
 	}
 
-	// Limit cache size to prevent memory bloat
-	if len(chunkCache) >= maxCacheSize {
-		// Clear old entries (simple approach - clear half the cache)
-		for k := range chunkCache {
-			delete(chunkCache, k)
-			if len(chunkCache) <= maxCacheSize/2 {
-				break
-			}
-		}
-	}
-
+	cacheKey := fmt.Sprintf("%d,%d", chunkX, chunkY)
 	var chunk block.Chunk
 	// Optimize: calculate surface heights for entire chunk width at once
 	surfaces := make([]int, block.ChunkWidth)

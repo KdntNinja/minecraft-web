@@ -1,6 +1,6 @@
 package player
 
-import "github.com/KdntNinja/webcraft/internal/block"
+import "github.com/KdntNinja/webcraft/internal/core/engine/block"
 
 // Player physics and movement constants
 const (

@@ -1,13 +1,12 @@
-package world
+package terrain
 
 import (
-	"github.com/KdntNinja/webcraft/internal/block"
-	"github.com/KdntNinja/webcraft/internal/noise"
+	"github.com/KdntNinja/webcraft/internal/core/engine/block"
+	"github.com/KdntNinja/webcraft/internal/generation/noise"
 )
 
 var (
 	surfaceHeights = make(map[int]int)
-	chunkCache     = make(map[string]block.Chunk) // Cache chunks to avoid regeneration
 
 	// Enhanced noise generator with crypto-random seeds
 	enhancedNoise *noise.EnhancedNoiseGenerator
@@ -63,20 +62,20 @@ func getSurfaceHeight(x int) int {
 	switch biome {
 	case DesertBiome:
 		// Desert: flatter with occasional dunes
-		biomeModifier = surfaceNoise.PlainsTerrainNoise(float64(x)) * 0.5
-		heightVariation = int((terrainNoise + biomeModifier) * 3)
+		biomeModifier = surfaceNoise.PlainsTerrainNoise(float64(x)) * 0.3
+		heightVariation = int((terrainNoise + biomeModifier) * 2)
 	case SnowBiome:
-		// Snow: dramatic mountainous terrain
-		biomeModifier = surfaceNoise.MountainousTerrainNoise(float64(x)) * 0.7
-		heightVariation = int((terrainNoise + biomeModifier) * 8)
+		// Snow: moderate mountainous terrain
+		biomeModifier = surfaceNoise.MountainousTerrainNoise(float64(x)) * 0.4
+		heightVariation = int((terrainNoise + biomeModifier) * 4)
 	case ClayCanyonBiome:
-		// Canyon: sharp ridges and valleys
-		biomeModifier = surfaceNoise.RidgedNoise1D(float64(x), 2, 0.01, 1.0) * 0.6
-		heightVariation = int((terrainNoise + biomeModifier) * 6)
+		// Canyon: gentle ridges and valleys
+		biomeModifier = surfaceNoise.RidgedNoise1D(float64(x), 2, 0.01, 1.0) * 0.3
+		heightVariation = int((terrainNoise + biomeModifier) * 3)
 	default: // Forest
-		// Forest: gentle rolling hills with enhanced detail
-		biomeModifier = surfaceNoise.EnhancedTerrainNoise(float64(x)) * 0.3
-		heightVariation = int((terrainNoise + biomeModifier) * 5)
+		// Forest: gentle rolling hills
+		biomeModifier = surfaceNoise.EnhancedTerrainNoise(float64(x)) * 0.2
+		heightVariation = int((terrainNoise + biomeModifier) * 3)
 	}
 
 	height := baseHeight + heightVariation
