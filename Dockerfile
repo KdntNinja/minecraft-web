@@ -1,5 +1,5 @@
 # ---- Build Stage ----
-FROM golang:1.23-alpine AS builder
+FROM golang:1.24.3-alpine AS builder
 WORKDIR /app
 COPY . .
 
@@ -9,7 +9,7 @@ RUN go mod tidy && \
     cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" wasm/
 
 # ---- Production Stage ----
-FROM golang:1.23-alpine
+FROM golang:1.24.3-alpine
 WORKDIR /app
 
 # Install curl for healthchecks
