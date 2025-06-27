@@ -3,7 +3,7 @@ package world
 import (
 	"fmt"
 
-	"github.com/KdntNinja/webcraft/engine/block"
+	"github.com/KdntNinja/webcraft/internal/block"
 )
 
 var (

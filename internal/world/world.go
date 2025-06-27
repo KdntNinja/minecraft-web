@@ -1,9 +1,9 @@
 package world
 
 import (
-	"github.com/KdntNinja/webcraft/engine/block"
-	"github.com/KdntNinja/webcraft/engine/entity"
-	"github.com/KdntNinja/webcraft/engine/player"
+	"github.com/KdntNinja/webcraft/internal/block"
+	"github.com/KdntNinja/webcraft/internal/entity"
+	"github.com/KdntNinja/webcraft/internal/player"
 )
 
 type World struct {

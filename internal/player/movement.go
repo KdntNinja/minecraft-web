@@ -1,6 +1,6 @@
 package player
 
-import "github.com/KdntNinja/webcraft/engine/entity"
+import "github.com/KdntNinja/webcraft/internal/entity"
 
 // ApplyMovement handles horizontal movement physics using entity movement system
 func (p *Player) ApplyMovement(isMoving bool, targetVX float64) {

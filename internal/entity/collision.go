@@ -3,7 +3,7 @@ package entity
 import (
 	"math"
 
-	"github.com/KdntNinja/webcraft/engine/block"
+	"github.com/KdntNinja/webcraft/internal/block"
 )
 
 // IsSolid checks if a block at grid coordinates is solid

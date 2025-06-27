@@ -5,7 +5,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 
-	"github.com/KdntNinja/webcraft/engine/block"
+	"github.com/KdntNinja/webcraft/internal/block"
 )
 
 var (

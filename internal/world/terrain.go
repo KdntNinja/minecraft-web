@@ -1,8 +1,8 @@
 package world
 
 import (
-	"github.com/KdntNinja/webcraft/engine/block"
-	"github.com/KdntNinja/webcraft/engine/noise"
+	"github.com/KdntNinja/webcraft/internal/block"
+	"github.com/KdntNinja/webcraft/internal/noise"
 )
 
 var (
@@ -205,7 +205,7 @@ func isUnderworld(y, worldHeight int) bool {
 func ResetWorldGeneration() {
 	// Reset enhanced noise generator to nil to force regeneration with new crypto-random seed
 	enhancedNoise = nil
-	
+
 	// Reset all individual noise generators to nil
 	surfaceNoise = nil
 	dirtNoise = nil

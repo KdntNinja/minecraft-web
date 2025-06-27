@@ -5,7 +5,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 
-	"github.com/KdntNinja/webcraft/engine/game"
+	"github.com/KdntNinja/webcraft/internal/game"
 )
 
 func main() {

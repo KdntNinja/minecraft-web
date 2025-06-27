@@ -5,9 +5,9 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 
-	"github.com/KdntNinja/webcraft/engine/player"
-	"github.com/KdntNinja/webcraft/engine/render"
-	"github.com/KdntNinja/webcraft/engine/world"
+	"github.com/KdntNinja/webcraft/internal/player"
+	"github.com/KdntNinja/webcraft/internal/render"
+	"github.com/KdntNinja/webcraft/internal/world"
 )
 
 type Game struct {
