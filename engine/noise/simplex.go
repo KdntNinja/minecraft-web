@@ -1,13 +1,68 @@
 package noise
 
 import (
+	"crypto/rand"
+	"encoding/binary"
+	"log"
 	"math"
+	"time"
 )
 
 // SimplexNoise implements a simplified version of simplex noise for terrain generation
 type SimplexNoise struct {
 	perm []int
 	seed int64
+}
+
+// EnhancedNoiseGenerator provides multiple noise algorithms for better terrain generation
+type EnhancedNoiseGenerator struct {
+	Primary   *SimplexNoise
+	Secondary *SimplexNoise
+	Detail    *SimplexNoise
+	Cave      *SimplexNoise
+	Ore       *SimplexNoise
+	Biome     *SimplexNoise
+	Structure *SimplexNoise
+	Seed      int64
+}
+
+// NewEnhancedNoiseGenerator creates a new enhanced noise generator with crypto-random seed
+func NewEnhancedNoiseGenerator() *EnhancedNoiseGenerator {
+	seed := generateCryptoRandomSeed()
+	log.Printf("Generating enhanced noise with seed: %d", seed)
+	return NewEnhancedNoiseGeneratorWithSeed(seed)
+}
+
+// NewEnhancedNoiseGeneratorWithSeed creates enhanced noise with specific seed
+func NewEnhancedNoiseGeneratorWithSeed(seed int64) *EnhancedNoiseGenerator {
+	return &EnhancedNoiseGenerator{
+		Primary:   NewSimplexNoise(seed),
+		Secondary: NewSimplexNoise(seed + 1000),
+		Detail:    NewSimplexNoise(seed + 2000),
+		Cave:      NewSimplexNoise(seed + 3000),
+		Ore:       NewSimplexNoise(seed + 4000),
+		Biome:     NewSimplexNoise(seed + 5000),
+		Structure: NewSimplexNoise(seed + 6000),
+		Seed:      seed,
+	}
+}
+
+// generateCryptoRandomSeed creates a cryptographically secure random seed
+func generateCryptoRandomSeed() int64 {
+	var seedBytes [8]byte
+	_, err := rand.Read(seedBytes[:])
+	if err != nil {
+		// Fallback to time-based seed if crypto/rand fails
+		log.Printf("Warning: Failed to generate crypto random seed, using time-based seed: %v", err)
+		return time.Now().UnixNano()
+	}
+
+	seed := int64(binary.LittleEndian.Uint64(seedBytes[:]))
+	// Ensure positive seed
+	if seed < 0 {
+		seed = -seed
+	}
+	return seed
 }
 
 // NewSimplexNoise creates a new SimplexNoise generator with the given seed
