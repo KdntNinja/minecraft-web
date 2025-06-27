@@ -7,6 +7,58 @@ import (
 	"github.com/KdntNinja/webcraft/internal/generation/noise"
 )
 
+// GenerateVisibleTerrain ensures chunks have some visible terrain for testing
+func GenerateVisibleTerrain(chunkX, chunkY int) block.Chunk {
+	var chunk block.Chunk
+
+	// Simple visible terrain generation for immediate feedback
+	terrainNoise := noise.NewSimplexNoise(42)
+
+	for y := 0; y < block.ChunkHeight; y++ {
+		for x := 0; x < block.ChunkWidth; x++ {
+			globalX := chunkX*block.ChunkWidth + x
+			globalY := chunkY*block.ChunkHeight + y
+
+			// Create a simple surface at different heights based on noise
+			surfaceNoise := terrainNoise.Noise1D(float64(globalX) * 0.02)
+			surfaceHeight := 20 + int(surfaceNoise*8) // Surface between y=12 and y=28
+
+			if globalY == surfaceHeight {
+				// Surface
+				biome := terrainNoise.GetBiomeAt(float64(globalX))
+				chunk[y][x] = getSurfaceBlock(biome)
+			} else if globalY < surfaceHeight {
+				// Underground
+				depth := surfaceHeight - globalY
+				if depth <= 3 {
+					chunk[y][x] = block.Dirt
+				} else if depth <= 10 {
+					// Mix of stone and dirt
+					stoneNoise := terrainNoise.Noise2D(float64(globalX)*0.1, float64(globalY)*0.1)
+					if stoneNoise > 0.3 {
+						chunk[y][x] = block.Stone
+					} else {
+						chunk[y][x] = block.Dirt
+					}
+				} else {
+					chunk[y][x] = block.Stone
+				}
+			} else {
+				// Above ground
+				if globalY == surfaceHeight+1 && shouldPlaceTree(globalX, terrainNoise.GetBiomeAt(float64(globalX))) {
+					chunk[y][x] = block.Wood
+				} else if globalY == surfaceHeight+2 && shouldPlaceTree(globalX, terrainNoise.GetBiomeAt(float64(globalX))) {
+					chunk[y][x] = block.Leaves
+				} else {
+					chunk[y][x] = block.Air
+				}
+			}
+		}
+	}
+
+	return chunk
+}
+
 // GenerateChunk creates a chunk with improved biome-based terrain generation
 func GenerateChunk(chunkX, chunkY int) block.Chunk {
 	// Check cache first to avoid regenerating identical chunks
@@ -14,64 +66,59 @@ func GenerateChunk(chunkX, chunkY int) block.Chunk {
 		return cached
 	}
 
+	// Use simple visible terrain generation for now to ensure we see something
+	if chunkY >= -1 && chunkY <= 3 {
+		chunk := GenerateVisibleTerrain(chunkX, chunkY)
+		cacheChunk(chunkX, chunkY, chunk)
+		return chunk
+	}
+
 	var chunk block.Chunk
 
 	// Initialize noise generators with seed variation
 	terrainNoise := noise.NewSimplexNoise(42)
 
-	// Pre-calculate surface heights and biomes for entire chunk width
-	surfaces := make([]int, block.ChunkWidth)
-	biomes := make([]noise.BiomeData, block.ChunkWidth)
+	// Calculate chunk boundaries in world coordinates
+	chunkStartY := chunkY * block.ChunkHeight
 
-	for x := 0; x < block.ChunkWidth; x++ {
-		globalX := chunkX*block.ChunkWidth + x
-
-		// Get biome data for this column
-		biomes[x] = terrainNoise.GetBiomeAt(float64(globalX))
-
-		// Get terrain height using biome-aware generation
-		terrainHeight := terrainNoise.GetBiomeTerrainHeight(float64(globalX), biomes[x])
-
-		// Scale height and make terrain less extreme but more varied
-		baseHeight := 120                          // Base sea level
-		heightVariation := int(terrainHeight * 25) // Reduced from 40 for less extreme terrain
-		surfaces[x] = baseHeight + heightVariation
-
-		// Clamp to reasonable bounds
-		if surfaces[x] < 80 {
-			surfaces[x] = 80
-		}
-		if surfaces[x] > 160 {
-			surfaces[x] = 160
-		}
-	}
-
-	// Generate chunk blocks using pre-calculated data
+	// Generate each block in the chunk
 	for y := 0; y < block.ChunkHeight; y++ {
 		for x := 0; x < block.ChunkWidth; x++ {
 			globalX := chunkX*block.ChunkWidth + x
-			globalY := chunkY*block.ChunkHeight + y
-			surface := surfaces[x]
-			biome := biomes[x]
+			globalY := chunkStartY + y
 
-			if globalY > surface {
+			// Get biome data for this column
+			biome := terrainNoise.GetBiomeAt(float64(globalX))
+
+			// Get terrain height using biome-aware generation
+			terrainHeight := terrainNoise.GetBiomeTerrainHeight(float64(globalX), biome)
+
+			// Scale height and make terrain reasonable - much lower base height
+			baseHeight := 32.0                       // Much lower base sea level for visibility
+			heightVariation := terrainHeight * 20.0  // Reduced terrain variation
+			surfaceHeight := int(baseHeight + heightVariation)
+
+			// Convert global Y to relative position from surface
+			relativeY := globalY - surfaceHeight
+
+			if relativeY > 0 {
 				// Above ground - air and vegetation
-				if globalY == surface+1 && shouldPlaceTree(globalX, biome) {
+				if relativeY == 1 && shouldPlaceTree(globalX, biome) {
 					chunk[y][x] = block.Wood
-				} else if globalY == surface+2 && shouldPlaceTree(globalX, biome) {
+				} else if relativeY == 2 && shouldPlaceTree(globalX, biome) {
 					chunk[y][x] = block.Leaves
 				} else {
 					chunk[y][x] = block.Air
 				}
-			} else if globalY == surface {
+			} else if relativeY == 0 {
 				// Surface block based on biome
 				chunk[y][x] = getSurfaceBlock(biome)
 			} else {
 				// Underground generation
-				depthFromSurface := surface - globalY
+				depthFromSurface := -relativeY
 
-				// Enhanced cave generation
-				if shouldGenerateCave(globalX, globalY, depthFromSurface, terrainNoise) {
+				// Enhanced cave generation (but not too close to surface)
+				if depthFromSurface > 3 && shouldGenerateCave(globalX, globalY, depthFromSurface, terrainNoise) {
 					chunk[y][x] = block.Air
 					continue
 				}
@@ -199,10 +246,28 @@ func getUndergroundBlock(depthFromSurface int, biome noise.BiomeData, terrainNoi
 	} else if depthFromSurface <= 8 {
 		// Transition layer with some variation
 		transitionNoise := terrainNoise.Noise2D(x*0.05, y*0.05)
-		if transitionNoise > 0.6 {
+		if transitionNoise > 0.4 {
 			return block.Dirt
 		}
 		return block.Stone
+	} else if depthFromSurface <= 20 {
+		// Mixed stone and dirt layer
+		mixNoise := terrainNoise.Noise2D(x*0.03, y*0.03)
+		if mixNoise > 0.6 {
+			return block.Dirt
+		} else if mixNoise > 0.2 {
+			return block.Stone
+		} else {
+			// Some variety in stone types
+			switch biome.Type {
+			case 2: // DesertBiome
+				return block.Sandstone
+			case 3: // MountainBiome
+				return block.Granite
+			default:
+				return block.Stone
+			}
+		}
 	} else {
 		// Deep stone with occasional variation
 		stoneVariation := terrainNoise.FractalNoise2D(x*0.03, y*0.03, 2, 0.02, 1.0, 0.5)
@@ -214,35 +279,40 @@ func getUndergroundBlock(depthFromSurface int, biome noise.BiomeData, terrainNoi
 				return block.Granite
 			case 7: // OceanBiome (if underground)
 				return block.Marble
+			case 2: // DesertBiome
+				return block.Sandstone
 			default:
 				return block.Stone
 			}
+		} else if stoneVariation > 0.3 {
+			return block.Stone
+		} else {
+			// Add some limestone for variety
+			return block.Limestone
 		}
-
-		return block.Stone
 	}
 }
 
 // Tree placement with biome-specific logic
 func shouldPlaceTree(globalX int, biome noise.BiomeData) bool {
-	treeChance := 0.01 // Base 1% chance
+	treeChance := 0.05 // Increased base 5% chance for more visible trees
 
 	switch biome.Type {
 	case 1: // ForestBiome
-		treeChance = 0.12 // 12% chance in forests
+		treeChance = 0.25 // 25% chance in forests
 	case 6: // JungleBiome
-		treeChance = 0.15 // 15% chance in jungles
+		treeChance = 0.3 // 30% chance in jungles
 	case 0: // PlainseBiome
-		treeChance = 0.03 // 3% chance in plains
+		treeChance = 0.08 // 8% chance in plains
 	case 4: // SwampBiome
-		treeChance = 0.08 // 8% chance in swamps
+		treeChance = 0.15 // 15% chance in swamps
 	case 2, 5: // DesertBiome, TundraBiome
-		treeChance = 0.002 // Very rare
+		treeChance = 0.01 // Still rare but not invisible
 	case 3: // MountainBiome
 		if biome.Temperature > -0.3 {
-			treeChance = 0.05 // Some trees on warmer mountains
+			treeChance = 0.12 // Some trees on warmer mountains
 		} else {
-			treeChance = 0.001 // Very rare on cold mountains
+			treeChance = 0.02 // Rare on cold mountains
 		}
 	}
 
@@ -298,24 +368,30 @@ func NewProceduralChunkLoader(loadRadius int) *ProceduralChunkLoader {
 	}
 }
 
-// UpdateAroundPlayer loads/unloads chunks based on player position
+// UpdateAroundPlayer loads/unloads chunks based on player position - optimized for viewport
 func (pcl *ProceduralChunkLoader) UpdateAroundPlayer(playerX, playerY float64) {
 	playerChunkX := int(playerX) / (block.ChunkWidth * block.TileSize)
 	playerChunkY := int(playerY) / (block.ChunkHeight * block.TileSize)
 
-	// Only update if player moved to a different chunk
-	if playerChunkX == pcl.lastPlayerX && playerChunkY == pcl.lastPlayerY {
+	// Only update if player moved significantly (every few blocks for performance)
+	chunkDiffX := abs(playerChunkX - pcl.lastPlayerX)
+	chunkDiffY := abs(playerChunkY - pcl.lastPlayerY)
+	if chunkDiffX == 0 && chunkDiffY == 0 {
 		return
 	}
 
 	pcl.lastPlayerX = playerChunkX
 	pcl.lastPlayerY = playerChunkY
 
-	// Load chunks in radius around player
+	// Calculate visible area (screen size in chunks)
+	screenWidthInChunks := (block.TilesX * block.TileSize) / (block.ChunkWidth * block.TileSize) + 2  // +2 for buffer
+	screenHeightInChunks := 3 // Only load a few chunks vertically for performance
+	
+	// Load chunks in visible area around player
 	newChunks := make(map[string]block.Chunk)
 
-	for dy := -pcl.loadRadius; dy <= pcl.loadRadius; dy++ {
-		for dx := -pcl.loadRadius; dx <= pcl.loadRadius; dx++ {
+	for dy := -screenHeightInChunks; dy <= screenHeightInChunks; dy++ {
+		for dx := -screenWidthInChunks; dx <= screenWidthInChunks; dx++ {
 			chunkX := playerChunkX + dx
 			chunkY := playerChunkY + dy
 
@@ -332,6 +408,14 @@ func (pcl *ProceduralChunkLoader) UpdateAroundPlayer(playerX, playerY float64) {
 	}
 
 	pcl.loadedChunks = newChunks
+}
+
+// Helper function for absolute value
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
 }
 
 // GetLoadedChunks returns all currently loaded chunks
