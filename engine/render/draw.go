@@ -9,16 +9,16 @@ import (
 )
 
 var (
-	tileImages      map[block.BlockType]*ebiten.Image
-	batchRenderer   *ebiten.DrawImageOptions // Reuse draw options to reduce allocations
-	isInitialized   bool                     // Track initialization state
-	
+	tileImages    map[block.BlockType]*ebiten.Image
+	batchRenderer *ebiten.DrawImageOptions // Reuse draw options to reduce allocations
+	isInitialized bool                     // Track initialization state
+
 	// Object pooling for performance
 	drawOptionsPool []*ebiten.DrawImageOptions
 	poolIndex       int
-	
+
 	// Pre-calculated colors for faster access
-	blockColors     [33]color.RGBA // Pre-calculated array for all block types
+	blockColors      [33]color.RGBA // Pre-calculated array for all block types
 	colorInitialized bool
 )
 
@@ -40,18 +40,12 @@ func initTileImages() {
 	tileImages = make(map[block.BlockType]*ebiten.Image)
 	batchRenderer = &ebiten.DrawImageOptions{}
 
-	// Create smaller tile images for better performance
-	tileSize := block.TileSize
-	if tileSize > 32 { // Limit tile size for performance
-		tileSize = 32
-	}
-
 	// Create tile images for all block types
 	for blockType := block.Air; blockType <= block.Lava; blockType++ {
 		if blockType == block.Air {
 			continue // Skip air blocks
 		}
-		tile := ebiten.NewImage(tileSize, tileSize)
+		tile := ebiten.NewImage(block.TileSize, block.TileSize)
 		tile.Fill(getBlockColorFast(blockType))
 		tileImages[blockType] = tile
 	}
@@ -63,7 +57,7 @@ func initBlockColors() {
 	if colorInitialized {
 		return
 	}
-	
+
 	// Pre-calculate all block colors for faster access
 	blockColors[block.Grass] = color.RGBA{106, 190, 48, 255}
 	blockColors[block.Dirt] = color.RGBA{151, 105, 79, 255}
@@ -91,7 +85,7 @@ func initBlockColors() {
 	blockColors[block.Water] = color.RGBA{0, 191, 255, 180}
 	blockColors[block.Lava] = color.RGBA{255, 69, 0, 255}
 	blockColors[block.Air] = color.RGBA{135, 206, 235, 255}
-	
+
 	colorInitialized = true
 }
 
