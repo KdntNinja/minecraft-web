@@ -6,11 +6,27 @@ import (
 	"github.com/KdntNinja/webcraft/engine/block"
 )
 
+var (
+	// Increase cache size for better performance
+	maxCacheSize = 100
+)
+
 func GenerateChunk(chunkX, chunkY int) block.Chunk {
 	// Check cache first to avoid regenerating identical chunks
 	cacheKey := fmt.Sprintf("%d,%d", chunkX, chunkY)
 	if cached, exists := chunkCache[cacheKey]; exists {
 		return cached
+	}
+
+	// Limit cache size to prevent memory bloat
+	if len(chunkCache) >= maxCacheSize {
+		// Clear old entries (simple approach - clear half the cache)
+		for k := range chunkCache {
+			delete(chunkCache, k)
+			if len(chunkCache) <= maxCacheSize/2 {
+				break
+			}
+		}
 	}
 
 	var chunk block.Chunk
@@ -32,31 +48,34 @@ func GenerateChunk(chunkX, chunkY int) block.Chunk {
 			surface := surfaces[x]
 
 			if globalY < surface {
-				// Above surface - air
-				chunk[y][x] = block.Air
+				// Above surface - air, but check for trees
+				if globalY == surface-1 && shouldPlaceTree(globalX) {
+					// Place tree trunk
+					chunk[y][x] = block.Wood
+				} else if globalY == surface-2 && shouldPlaceTree(globalX) {
+					// Place tree leaves
+					chunk[y][x] = block.Leaves
+				} else {
+					chunk[y][x] = block.Air
+				}
 			} else if globalY == surface {
 				// Surface block - depends on biome
 				chunk[y][x] = getSurfaceBlock(globalX)
 			} else {
 				// Underground - complex generation
-				depthFromSurface := globalY - surface
-
-				// Check if we're in underworld first
+				depthFromSurface := globalY - surface // Check if we're in underworld first
 				if isUnderworld(globalY, worldHeight) {
-					// Underworld generation with more complex patterns
-					underworldScale := 0.12
-					underworldNoise2D := underworldNoise.Noise2D(float64(globalX)*underworldScale, float64(globalY)*underworldScale)
+					// Terraria-style underworld generation
+					underworldNoise := underworldNoise.TerrariaUnderworldNoise(float64(globalX), float64(globalY))
 
-					// Add secondary noise for more varied underworld
-					underworldNoise2 := underworldNoise.Noise2D(float64(globalX)*underworldScale*2, float64(globalY)*underworldScale*2) * 0.3
-					combinedUnderworldNoise := underworldNoise2D + underworldNoise2
-
-					if combinedUnderworldNoise < -0.3 {
+					if underworldNoise < -0.4 {
 						chunk[y][x] = block.Lava
-					} else if combinedUnderworldNoise > 0.4 {
+					} else if underworldNoise > 0.5 {
 						chunk[y][x] = block.HellstoneOre
-					} else {
+					} else if underworldNoise > 0.2 {
 						chunk[y][x] = block.Hellstone
+					} else {
+						chunk[y][x] = block.Ash // Add ash blocks in underworld
 					}
 					continue
 				}
@@ -70,17 +89,24 @@ func GenerateChunk(chunkX, chunkY int) block.Chunk {
 				// Different underground layers based on biome and depth
 				biome := getBiome(globalX)
 
-				// Dirt layer - varies by biome
+				// Terraria-style underground layer generation
+				undergroundNoise := dirtNoise.TerrariaUndergroundNoise(float64(globalX), float64(globalY))
+
+				// Dirt layer - varies by biome and underground noise
 				var dirtThickness int
 				switch biome {
 				case DesertBiome:
-					dirtThickness = 2 + int(dirtNoise.Noise2D(float64(globalX)*0.12, float64(globalY)*0.12)*1) // 1-3 blocks
+					// Sand extends deeper in desert
+					dirtThickness = 3 + int(undergroundNoise*2) // 1-5 blocks of sand
 				case SnowBiome:
-					dirtThickness = 4 + int(dirtNoise.Noise2D(float64(globalX)*0.12, float64(globalY)*0.12)*2) // 2-6 blocks
+					// Ice and snow layers
+					dirtThickness = 5 + int(undergroundNoise*3) // 2-8 blocks
 				case ClayCanyonBiome:
-					dirtThickness = 1 + int(dirtNoise.Noise2D(float64(globalX)*0.12, float64(globalY)*0.12)*1) // 0-2 blocks
+					// Thin soil layer over rock
+					dirtThickness = 2 + int(undergroundNoise*1) // 1-3 blocks
 				default: // Forest
-					dirtThickness = 3 + int(dirtNoise.Noise2D(float64(globalX)*0.12, float64(globalY)*0.12)*2) // 1-5 blocks
+					// Standard dirt layer
+					dirtThickness = 4 + int(undergroundNoise*2) // 2-6 blocks
 				}
 
 				if depthFromSurface <= dirtThickness {

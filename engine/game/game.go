@@ -16,6 +16,10 @@ type Game struct {
 	LastScreenH int     // Cache last screen height
 	CameraX     float64 // Camera X position
 	CameraY     float64 // Camera Y position
+
+	// Pre-allocated images to reduce memory allocation
+	playerImage *ebiten.Image
+	frameCount  int // For frame rate limiting
 }
 
 func NewGame() *Game {
@@ -23,6 +27,10 @@ func NewGame() *Game {
 		LastScreenW: 800, // Default screen width
 		LastScreenH: 600, // Default screen height
 	}
+
+	// Pre-allocate player image to avoid recreating it every frame
+	g.playerImage = ebiten.NewImage(player.Width, player.Height)
+	g.playerImage.Fill(color.RGBA{255, 255, 0, 255}) // Yellow
 
 	// Create a simple world with fixed size
 	g.World = world.NewWorld(20, 0) // Create world with 20 chunks vertically
@@ -35,6 +43,8 @@ func (g *Game) Update() error {
 		return nil
 	}
 
+	g.frameCount++
+
 	// Update all entities (including player)
 	grid := g.World.ToIntGrid()
 	for _, e := range g.World.Entities {
@@ -46,15 +56,15 @@ func (g *Game) Update() error {
 		}
 	}
 
-	// Update camera to follow player
-	if len(g.World.Entities) > 0 {
+	// Update camera to follow player (only every few frames for smoother performance)
+	if g.frameCount%2 == 0 && len(g.World.Entities) > 0 {
 		if player, ok := g.World.Entities[0].(*player.Player); ok {
 			// Smooth camera following with some easing
 			targetCameraX := player.X + float64(player.Width)/2 - float64(g.LastScreenW)/2
 			targetCameraY := player.Y + float64(player.Height)/2 - float64(g.LastScreenH)/2
 
-			// Smooth camera movement (lerp)
-			lerpFactor := 0.1
+			// Smooth camera movement (lerp) - reduced for better performance
+			lerpFactor := 0.05
 			g.CameraX += (targetCameraX - g.CameraX) * lerpFactor
 			g.CameraY += (targetCameraY - g.CameraY) * lerpFactor
 		}
@@ -65,30 +75,30 @@ func (g *Game) Update() error {
 
 func (g *Game) Draw(screen *ebiten.Image) {
 	if g.World == nil {
+		// Fill with a solid color to prevent black flashing
+		screen.Fill(color.RGBA{135, 206, 250, 255}) // Sky blue
 		return
 	}
 
-	// Create a temporary image for world rendering
-	worldImg := ebiten.NewImage(screen.Bounds().Dx(), screen.Bounds().Dy())
+	// Clear screen with sky color to prevent flashing
+	screen.Fill(color.RGBA{135, 206, 250, 255}) // Sky blue
 
-	// Render world with camera offset
-	render.DrawWithCamera(&g.World.Blocks, worldImg, g.CameraX, g.CameraY)
+	// Render world directly to screen (avoid intermediate image allocation)
+	render.DrawWithCamera(&g.World.Blocks, screen, g.CameraX, g.CameraY)
 
-	// Draw all entities with camera offset
+	// Draw all entities directly to screen with camera offset
 	for _, e := range g.World.Entities {
 		if p, ok := e.(*player.Player); ok {
-			playerColor := [4]uint8{255, 255, 0, 255} // Yellow
 			px, py := int(p.X-g.CameraX), int(p.Y-g.CameraY)
-			img := ebiten.NewImage(player.Width, player.Height)
-			img.Fill(color.RGBA{playerColor[0], playerColor[1], playerColor[2], playerColor[3]})
-			var op ebiten.DrawImageOptions
-			op.GeoM.Translate(float64(px), float64(py))
-			worldImg.DrawImage(img, &op)
+
+			// Only draw if player is visible on screen
+			if px > -player.Width && px < g.LastScreenW && py > -player.Height && py < g.LastScreenH {
+				var op ebiten.DrawImageOptions
+				op.GeoM.Translate(float64(px), float64(py))
+				screen.DrawImage(g.playerImage, &op)
+			}
 		}
 	}
-
-	// Draw the world image to the screen
-	screen.DrawImage(worldImg, nil)
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {

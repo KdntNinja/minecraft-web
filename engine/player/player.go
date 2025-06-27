@@ -10,10 +10,13 @@ import (
 const (
 	Width        = block.TileSize
 	Height       = block.TileSize * 2
-	MoveSpeed    = 6.0   // Increased speed for larger blocks
-	JumpSpeed    = -12.0 // Stronger jump for larger blocks
-	Gravity      = 0.8   // Slightly stronger gravity
-	MaxFallSpeed = 15.0  // Higher terminal velocity
+	MoveSpeed    = 4.0   // More controlled Minecraft-like speed
+	JumpSpeed    = -10.0 // Minecraft-like jump strength
+	Gravity      = 0.5   // Gentler gravity like Minecraft
+	MaxFallSpeed = 12.0  // Reasonable terminal velocity
+
+	// Collision tolerance to prevent bouncing
+	CollisionTolerance = 0.1
 )
 
 type Player struct {
@@ -39,17 +42,22 @@ func (p *Player) Update() {
 		p.VX = MoveSpeed
 	}
 
-	// Jump - only when grounded and key pressed
+	// Jump - only when grounded and key pressed (with better input handling)
 	if (ebiten.IsKeyPressed(ebiten.KeyUp) || ebiten.IsKeyPressed(ebiten.KeyW) || ebiten.IsKeyPressed(ebiten.KeySpace)) && p.OnGround {
 		p.VY = JumpSpeed
 		p.OnGround = false
 	}
 
-	// Apply gravity with terminal velocity
+	// Apply gravity with terminal velocity (more Minecraft-like)
 	if !p.OnGround {
 		p.VY += Gravity
 		if p.VY > MaxFallSpeed {
 			p.VY = MaxFallSpeed
+		}
+	} else {
+		// When on ground, ensure minimal downward velocity to prevent bouncing
+		if p.VY > 0 {
+			p.VY = 0
 		}
 	}
 }
