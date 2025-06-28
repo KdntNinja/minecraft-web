@@ -3,6 +3,9 @@ FROM golang:1.24.3-alpine AS builder
 WORKDIR /app
 COPY . .
 
+# Get the wasm_exec.js file from the Go standard library
+RUN wasm/scripts/find_wasm_exec.sh
+
 # Update go.mod and build the WASM binary
 RUN go mod tidy && \
     GOOS=js GOARCH=wasm EBITEN_GRAPHICS_LIBRARY=opengl go build -o wasm/main.wasm github.com/KdntNinja/webcraft && \
