@@ -25,7 +25,7 @@ type World struct {
 }
 
 // NewWorld constructs a new World instance with a fixed set of pre-generated chunks
-func NewWorld(numChunksY int, centerChunkX int, seed int64) *World {
+func NewWorld(centerChunkX int, seed int64) *World {
 	terrain.ResetWorldGeneration(seed)
 	w := &World{
 		Chunks:    make(map[ChunkCoord]block.Chunk),
@@ -36,16 +36,39 @@ func NewWorld(numChunksY int, centerChunkX int, seed int64) *World {
 	worldWidth := settings.WorldChunksX  // Total chunks horizontally
 	worldHeight := settings.WorldChunksY // Total chunks vertically
 
+	// Calculate chunk range to center the player properly
+	halfWidth := worldWidth / 2
+	var startX, endX int
+	if worldWidth%2 == 0 {
+		// Even number of chunks: player spawns in the chunk to the right of center gap
+		startX = centerChunkX - halfWidth + 1
+		endX = centerChunkX + halfWidth
+	} else {
+		// Odd number of chunks: player spawns in the center chunk
+		startX = centerChunkX - halfWidth
+		endX = centerChunkX + halfWidth
+	}
+
 	for cy := 0; cy < worldHeight; cy++ {
-		for cx := -worldWidth / 2; cx <= worldWidth/2; cx++ {
-			coord := ChunkCoord{X: centerChunkX + cx, Y: cy}
+		for cx := startX; cx <= endX; cx++ {
+			coord := ChunkCoord{X: cx, Y: cy}
 			w.Chunks[coord] = GenerateChunk(coord.X, coord.Y)
 		}
 	}
 
-	// Add player entity at center - improved spawning with rightward shift
-	centerChunkCol := 2 // Shift spawn point 2 chunks to the right for better world exploration
-	centerBlockX := centerChunkCol*settings.ChunkWidth + settings.ChunkWidth/2
+	// Add player entity at center of the world
+	var playerChunkX int
+	if worldWidth%2 == 0 {
+		// Even number: spawn in the chunk that's actually in the middle of the range
+		// For chunks -5 to 6, the middle would be around chunk 0.5, so spawn in chunk 1
+		playerChunkX = centerChunkX + 1
+	} else {
+		// Odd number: spawn in the center chunk
+		playerChunkX = centerChunkX
+	}
+
+	// Place player at the center of their spawn chunk
+	centerBlockX := playerChunkX*settings.ChunkWidth + settings.ChunkWidth/2
 	px := float64(centerBlockX * settings.TileSize)
 
 	// Find the surface height at the center position - try multiple points for best spawn
@@ -146,14 +169,6 @@ func (w *World) ToIntGrid() ([][]int, int, int) {
 	w.gridDirty = false
 
 	return grid, w.cachedGridOffsetX, w.cachedGridOffsetY
-}
-
-// Helper function for max
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
 }
 
 // IsGridDirty returns whether the collision grid needs to be regenerated

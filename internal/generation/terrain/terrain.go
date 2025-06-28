@@ -1,9 +1,6 @@
 package terrain
 
 import (
-	"math/rand"
-	"time"
-
 	"github.com/KdntNinja/webcraft/internal/core/engine/block"
 	"github.com/KdntNinja/webcraft/internal/core/settings"
 	"github.com/KdntNinja/webcraft/internal/generation/noise"
@@ -22,8 +19,8 @@ func init() {
 
 func initTerrainNoise() {
 	if terrainNoise == nil {
-		rand.Seed(time.Now().UnixNano())
-		terrainSeed = int64(rand.Intn(1000000) + 1) // Random seed in [1, 1000000]
+		// Use default seed if not set
+		terrainSeed = settings.DefaultSeed
 		terrainNoise = noise.NewPerlinNoise(terrainSeed)
 		terrainHeights = make(map[int]int)
 	}
@@ -56,31 +53,6 @@ func getSurfaceHeight(x int) int {
 	return height
 }
 
-// GenerateChunksInView generates all chunks in range of the player's view (centered on player)
-func GenerateChunksInView(playerX, playerY float64, viewRadius int) {
-	playerChunkX := int(playerX) / (settings.ChunkWidth * settings.TileSize)
-	playerChunkY := int(playerY) / (settings.ChunkHeight * settings.TileSize)
-
-	for cy := playerChunkY - viewRadius; cy <= playerChunkY+viewRadius; cy++ {
-		for cx := playerChunkX - viewRadius; cx <= playerChunkX+viewRadius; cx++ {
-			_ = GenerateChunk(cx, cy) // This will generate and cache the chunk if needed
-		}
-	}
-}
-
-// BiomeType represents different surface biomes
-// Only a single biome for simplicity
-
-type BiomeType int
-
-const (
-	DefaultBiome BiomeType = iota
-)
-
-func getBiome(x int) BiomeType {
-	return DefaultBiome
-}
-
 // getOreType determines what ore should be placed using simple noise
 func getOreType(x, y, depthFromSurface int) block.BlockType {
 	oreNoise := terrainNoise.Noise2D(float64(x), float64(y))
@@ -98,31 +70,11 @@ func getOreType(x, y, depthFromSurface int) block.BlockType {
 	}
 }
 
-// isInCave determines if a position should be a cave using simple noise
-func isInCave(x, y int) bool {
-	// Don't generate caves too close to surface
-	if y < 8 {
-		return false
-	}
-
-	// Use simple noise for cave generation
-	caveNoise := terrainNoise.Noise2D(float64(x), float64(y))
-
-	// Simple cave threshold
-	return caveNoise < -0.2
-}
-
-// isUnderworld checks if we're in the underworld layer
-func isUnderworld(y, worldHeight int) bool {
-	return y > worldHeight-6 // Bottom 6 layers are underworld
-}
-
 // ResetWorldGeneration forces regeneration with a new provided seed
 func ResetWorldGeneration(seed int64) {
 	terrainNoise = noise.NewPerlinNoise(seed)
 	terrainSeed = seed
 	terrainHeights = make(map[int]int)
-	chunkCache = make(map[string]block.Chunk)
 }
 
 // GetWorldSeed returns the current world seed for display or saving
