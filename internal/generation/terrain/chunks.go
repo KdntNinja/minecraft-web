@@ -63,91 +63,80 @@ func GenerateVisibleTerrain(chunkX, chunkY int) block.Chunk {
 	return chunk
 }
 
-// GenerateChunk creates a chunk with improved biome-based terrain generation
+// GenerateChunk creates a chunk with Terraria-like terrain layers
 func GenerateChunk(chunkX, chunkY int) block.Chunk {
-	// Check cache first to avoid regenerating identical chunks
-	if cached, exists := getCachedChunk(chunkX, chunkY); exists {
-		return cached
-	}
-
-	// Calculate the global Y range for this chunk
-	chunkStartY := chunkY * block.ChunkHeight
-	chunkEndY := chunkStartY + block.ChunkHeight
-
-	// Determine surface height range to check if this chunk might contain surface
-	terrainNoise := noise.NewSimplexNoise(42)
-	minSurface, maxSurface := getSurfaceHeightRange(chunkX, terrainNoise)
-
-	// If this chunk is likely to contain surface terrain, use visible generation
-	if (chunkStartY <= maxSurface && chunkEndY >= minSurface) ||
-		(chunkStartY <= 100 && chunkEndY >= 20) { // Also include chunks around typical surface heights
-		chunk := GenerateVisibleTerrain(chunkX, chunkY)
-		cacheChunk(chunkX, chunkY, chunk)
-		return chunk
-	}
-
 	var chunk block.Chunk
 
-	// Calculate chunk boundaries in world coordinates
-	chunkStartY = chunkY * block.ChunkHeight
+	chunkStartY := chunkY * block.ChunkHeight
+	terrainNoise := noise.NewSimplexNoise(42)
 
-	// Generate each block in the chunk
 	for y := 0; y < block.ChunkHeight; y++ {
+		globalY := chunkStartY + y
 		for x := 0; x < block.ChunkWidth; x++ {
 			globalX := chunkX*block.ChunkWidth + x
-			globalY := chunkStartY + y
 
-			// Get biome data for this column
-			biome := terrainNoise.GetBiomeAt(float64(globalX))
+			// Add more noise for surface height and dirt thickness
+			surfaceBase := 36
+			surfaceNoise := terrainNoise.Noise1D(float64(globalX) * 0.015)
+			surfaceDetail := terrainNoise.Noise1D(float64(globalX)*0.07) * 2.5
+			surfaceHeight := surfaceBase + int(surfaceNoise*6+surfaceDetail)
 
-			// Get terrain height using biome-aware generation
-			terrainHeight := terrainNoise.GetBiomeTerrainHeight(float64(globalX), biome)
+			dirtBase := 6
+			dirtNoise := terrainNoise.Noise1D(float64(globalX)*0.09+1000) * 2.5
+			dirtThickness := dirtBase + int(dirtNoise)
+			if dirtThickness < 4 {
+				dirtThickness = 4
+			}
 
-			// Scale height and make terrain reasonable - adjust base height for proper surface placement
-			baseHeight := 50.0                      // Surface around chunk 0 at position 50
-			heightVariation := terrainHeight * 20.0 // Terrain variation
-			surfaceHeight := int(baseHeight + heightVariation)
-
-			// Convert global Y to relative position from surface
-			relativeY := globalY - surfaceHeight
-
-			if relativeY > 0 {
-				// Above ground - air and vegetation
-				if relativeY == 1 && shouldPlaceTree(globalX, biome) {
-					chunk[y][x] = block.Wood
-				} else if relativeY == 2 && shouldPlaceTree(globalX, biome) {
-					chunk[y][x] = block.Leaves
+			if globalY < surfaceHeight {
+				chunk[y][x] = block.Air
+			} else if globalY == surfaceHeight {
+				// Surface block: add some variety (grass, sand, clay, snow)
+				surfTypeNoise := terrainNoise.Noise1D(float64(globalX)*0.03 + 500)
+				if surfTypeNoise > 0.6 {
+					chunk[y][x] = block.Snow
+				} else if surfTypeNoise < -0.6 {
+					chunk[y][x] = block.Sand
+				} else if surfTypeNoise > 0.2 {
+					chunk[y][x] = block.Clay
 				} else {
-					chunk[y][x] = block.Air
+					chunk[y][x] = block.Grass
 				}
-			} else if relativeY == 0 {
-				// Surface block based on biome
-				chunk[y][x] = getSurfaceBlock(biome)
+			} else if globalY <= surfaceHeight+dirtThickness {
+				// Dirt layer, with some clay and sand patches
+				dirtTypeNoise := terrainNoise.Noise2D(float64(globalX)*0.05, float64(globalY)*0.05)
+				if dirtTypeNoise > 0.7 {
+					chunk[y][x] = block.Clay
+				} else if dirtTypeNoise < -0.7 {
+					chunk[y][x] = block.Sand
+				} else {
+					chunk[y][x] = block.Dirt
+				}
+			} else if globalY < block.ChunkHeight*chunkY+block.ChunkHeight-16 {
+				// Stone layer, with caves and ores
+				caveNoise := terrainNoise.Noise2D(float64(globalX)*0.08, float64(globalY)*0.08)
+				if caveNoise > 0.55 {
+					chunk[y][x] = block.Air
+				} else {
+					oreNoise := terrainNoise.Noise2D(float64(globalX)*0.13, float64(globalY)*0.13)
+					if oreNoise > 0.82 {
+						chunk[y][x] = block.IronOre
+					} else if oreNoise < -0.82 {
+						chunk[y][x] = block.CopperOre
+					} else {
+						chunk[y][x] = block.Stone
+					}
+				}
+			} else if globalY < block.ChunkHeight*chunkY+block.ChunkHeight-4 {
+				// Underworld transition (ash)
+				chunk[y][x] = block.Ash
 			} else {
-				// Underground generation
-				depthFromSurface := -relativeY
-
-				// Enhanced cave generation (but not too close to surface)
-				if depthFromSurface > 3 && shouldGenerateCave(globalX, globalY, depthFromSurface, terrainNoise) {
-					chunk[y][x] = block.Air
-					continue
-				}
-
-				// Ore generation with biome influence
-				oreType := generateOre(globalX, globalY, depthFromSurface, biome, terrainNoise)
-				if oreType != block.Air {
-					chunk[y][x] = oreType
-					continue
-				}
-
-				// Standard underground layers
-				chunk[y][x] = getUndergroundBlock(depthFromSurface, biome, terrainNoise, globalX, globalY)
+				// Very bottom: hellstone
+				chunk[y][x] = block.Hellstone
 			}
 		}
 	}
 
-	// Cache the generated chunk
-	cacheChunk(chunkX, chunkY, chunk)
 	return chunk
 }
 

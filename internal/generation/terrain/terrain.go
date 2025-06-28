@@ -6,81 +6,28 @@ import (
 )
 
 var (
-	surfaceHeights = make(map[int]int)
-
-	// Enhanced noise generator with crypto-random seeds
-	enhancedNoise *noise.EnhancedNoiseGenerator
-
-	// Individual noise instances for backward compatibility
-	surfaceNoise    *noise.SimplexNoise // For surface terrain height
-	dirtNoise       *noise.SimplexNoise // For dirt layer transitions
-	stoneNoise      *noise.SimplexNoise // For stone layer variations
-	caveNoise       *noise.SimplexNoise // For cave generation
-	oreNoise        *noise.SimplexNoise // For ore distribution
-	biomeNoise      *noise.SimplexNoise // For biome distribution
-	underworldNoise *noise.SimplexNoise // For underworld generation
+	terrainHeights = make(map[int]int)
+	terrainNoise   *noise.SimplexNoise
 )
 
-func initNoiseGenerators() {
-	if enhancedNoise == nil {
-		// Use enhanced noise generator with crypto-random seed
-		enhancedNoise = noise.NewEnhancedNoiseGenerator()
-
-		// Clear caches for fresh world generation
-		surfaceHeights = make(map[int]int)
-		chunkCache = make(map[string]block.Chunk)
-
-		// Assign individual noise instances for compatibility
-		surfaceNoise = enhancedNoise.Primary
-		dirtNoise = enhancedNoise.Secondary
-		stoneNoise = enhancedNoise.Detail
-		caveNoise = enhancedNoise.Cave
-		oreNoise = enhancedNoise.Ore
-		biomeNoise = enhancedNoise.Biome
-		underworldNoise = enhancedNoise.Structure
+func initTerrainNoise() {
+	if terrainNoise == nil {
+		terrainNoise = noise.NewSimplexNoise(42) // Use a fixed seed for simplicity
+		terrainHeights = make(map[int]int)
 	}
 }
 
 func getSurfaceHeight(x int) int {
-	h, ok := surfaceHeights[x]
+	h, ok := terrainHeights[x]
 	if ok {
 		return h
 	}
-	initNoiseGenerators()
+	initTerrainNoise()
 
-	// Use enhanced terrain generation for better variety
 	baseHeight := 12 // Base terrain height
+	heightNoise := terrainNoise.SimpleTerrainNoise(float64(x))
+	height := baseHeight + int(heightNoise*8) // Simple scaling
 
-	// Generate sophisticated terrain using enhanced algorithms
-	terrainNoise := surfaceNoise.AdvancedHybridTerrainNoise(float64(x))
-
-	// Enhanced biome-based terrain variations
-	biome := getBiome(x)
-	var heightVariation int
-	var biomeModifier float64
-
-	switch biome {
-	case DesertBiome:
-		// Desert: flatter with occasional dunes
-		biomeModifier = surfaceNoise.PlainsTerrainNoise(float64(x)) * 0.3
-		heightVariation = int((terrainNoise + biomeModifier) * 2)
-	case SnowBiome:
-		// Snow: moderate mountainous terrain
-		biomeModifier = surfaceNoise.MountainousTerrainNoise(float64(x)) * 0.4
-		heightVariation = int((terrainNoise + biomeModifier) * 4)
-	case ClayCanyonBiome:
-		// Canyon: gentle ridges and valleys
-		biomeModifier = surfaceNoise.RidgedNoise1D(float64(x), 2, 0.01, 1.0) * 0.3
-		heightVariation = int((terrainNoise + biomeModifier) * 3)
-	default: // Forest
-		// Forest: gentle rolling hills
-		biomeModifier = surfaceNoise.EnhancedTerrainNoise(float64(x)) * 0.2
-		heightVariation = int((terrainNoise + biomeModifier) * 3)
-	}
-
-	height := baseHeight + heightVariation
-
-	// Ensure height is always within reasonable bounds
 	if height < 3 {
 		height = 3
 	}
@@ -88,79 +35,61 @@ func getSurfaceHeight(x int) int {
 		height = block.ChunkHeight - 2
 	}
 
-	surfaceHeights[x] = height
+	terrainHeights[x] = height
 	return height
 }
 
 // BiomeType represents different surface biomes
+// Only a single biome for simplicity
+
 type BiomeType int
 
 const (
-	ForestBiome BiomeType = iota
-	DesertBiome
-	SnowBiome
-	ClayCanyonBiome
+	DefaultBiome BiomeType = iota
 )
 
-// getBiome determines the biome at a given x coordinate using fast noise
 func getBiome(x int) BiomeType {
-	initNoiseGenerators()
-
-	// Use simple noise for better performance
-	biomeNoise := biomeNoise.Noise1D(float64(x) * 0.005) // Simplified scale
-
-	// Simplified biome thresholds
-	if biomeNoise < -0.3 {
-		return DesertBiome
-	} else if biomeNoise > 0.4 {
-		return SnowBiome
-	} else if biomeNoise > 0.1 {
-		return ClayCanyonBiome
-	}
-	return ForestBiome // Most common biome
+	return DefaultBiome
 }
 
-// getOreType determines what ore should be placed using enhanced noise
+// getOreType determines what ore should be placed using simple noise
 func getOreType(x, y, depthFromSurface int) block.BlockType {
-	initNoiseGenerators()
+	initTerrainNoise()
 
-	// Use enhanced ore generation with depth-based rarity
-	oreType := oreNoise.EnhancedOreNoise(float64(x), float64(y), depthFromSurface)
+	// Use simple noise for ore generation
+	oreNoise := terrainNoise.Noise2D(float64(x), float64(y))
 
 	// Map ore type numbers to block types
-	switch oreType {
-	case 0:
+	switch {
+	case oreNoise < -0.3:
 		return block.CopperOre
-	case 1:
+	case oreNoise < 0:
 		return block.IronOre
-	case 2:
+	case oreNoise < 0.3:
 		return block.SilverOre
-	case 3:
+	case oreNoise < 0.6:
 		return block.GoldOre
-	case 4:
+	case oreNoise < 0.9:
 		return block.PlatinumOre
 	default:
 		return block.Stone // Default to stone
 	}
 }
 
-// isInCave determines if a position should be a cave using enhanced approach
+// isInCave determines if a position should be a cave using simple noise
 func isInCave(x, y int) bool {
-	initNoiseGenerators()
+	initTerrainNoise()
 
 	// Don't generate caves too close to surface
 	if y < 8 {
 		return false
 	}
 
-	// Use enhanced cave generation for better variety
-	caveNoiseValue := caveNoise.EnhancedCaveNoise(float64(x), float64(y))
+	// Use simple noise for cave generation
+	caveNoise := terrainNoise.Noise2D(float64(x), float64(y))
 
-	// Dynamic cave threshold based on depth for more realistic cave systems
-	depth := y - 8
-	depthThreshold := -0.4 + float64(depth)*0.01 // More caves deeper down
-
-	return caveNoiseValue < depthThreshold
+	// Simple cave threshold
+	return caveNoise < -0.2
 }
 
 // isUnderworld checks if we're in the underworld layer
@@ -170,28 +99,59 @@ func isUnderworld(y, worldHeight int) bool {
 
 // ResetWorldGeneration forces regeneration with new random seeds
 func ResetWorldGeneration() {
-	// Reset enhanced noise generator to nil to force regeneration with new crypto-random seed
-	enhancedNoise = nil
-
-	// Reset all individual noise generators to nil
-	surfaceNoise = nil
-	dirtNoise = nil
-	stoneNoise = nil
-	caveNoise = nil
-	oreNoise = nil
-	biomeNoise = nil
-	underworldNoise = nil
+	// Reset terrain noise to nil to force regeneration with new seed
+	terrainNoise = nil
 
 	// Clear all caches
-	surfaceHeights = make(map[int]int)
+	terrainHeights = make(map[int]int)
 	chunkCache = make(map[string]block.Chunk)
 }
 
 // GetWorldSeed returns the current world seed for display or saving
 func GetWorldSeed() int64 {
-	initNoiseGenerators()
-	if enhancedNoise != nil {
-		return enhancedNoise.Seed
+	initTerrainNoise()
+	return 42 // Fixed seed, as randomness is not used in this simplified version
+}
+
+// getBlockType returns the block type for a given world position, generating Minecraft-like layers
+func getBlockType(x, y int) block.BlockType {
+	initTerrainNoise()
+
+	surfaceY := getSurfaceHeight(x)
+	depth := y - surfaceY
+
+	if y < 0 || y >= block.ChunkHeight {
+		return block.Air
 	}
-	return 0
+
+	if y < surfaceY {
+		return block.Air
+	}
+
+	// Surface block
+	if y == surfaceY {
+		return block.Grass
+	}
+
+	// Dirt layer (3 blocks below surface)
+	if y > surfaceY && y <= surfaceY+3 {
+		return block.Dirt
+	}
+
+	// Stone and ores below dirt
+	if y > surfaceY+3 && y < block.ChunkHeight-6 {
+		// Occasionally generate ores
+		ore := getOreType(x, y, depth)
+		if ore != block.Stone {
+			return ore
+		}
+		return block.Stone
+	}
+
+	// Underworld (bottom 6 layers)
+	if y >= block.ChunkHeight-6 {
+		return block.Hellstone
+	}
+
+	return block.Stone
 }

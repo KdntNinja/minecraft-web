@@ -90,47 +90,42 @@ func (sn *SimplexNoise) GetBiomeAt(x float64) BiomeData {
 
 // GetBiomeTerrainHeight returns terrain height modified by biome characteristics
 func (sn *SimplexNoise) GetBiomeTerrainHeight(x float64, biome BiomeData) float64 {
-	baseHeight := sn.AdvancedHybridTerrainNoise(x)
+	baseHeight := sn.SimpleTerrainNoise(x)
 
 	switch biome.Type {
 	case MountainBiome:
-		mountainHeight := sn.MountainousTerrainNoise(x)
+		mountainHeight := sn.SimpleTerrainNoise(x)
 		return baseHeight*0.3 + mountainHeight*0.7 + biome.Elevation*0.4
 
 	case PlainseBiome:
-		plainHeight := sn.PlainsTerrainNoise(x)
+		plainHeight := sn.SimpleTerrainNoise(x)
 		return baseHeight*0.2 + plainHeight*0.8 + biome.Elevation*0.2
 
 	case DesertBiome:
 		// Desert has dunes and occasional mesas
-		dunes := sn.FractalNoise1D(x*0.02, 2, 0.03, 0.5, 0.6)
-		mesas := sn.RidgedNoise1D(x*0.005, 2, 0.01, 0.8) * 0.3
+		dunes := sn.SimpleTerrainNoise(x)
+		mesas := sn.SimpleTerrainNoise(x) * 0.3
 		return baseHeight*0.4 + dunes + mesas + biome.Elevation*0.3
 
 	case ForestBiome:
 		// Forest has gentle rolling hills
-		hills := sn.FractalNoise1D(x*0.015, 3, 0.02, 0.6, 0.5)
-		return baseHeight*0.5 + hills*0.5 + biome.Elevation*0.25
+		return baseHeight + biome.Elevation*0.2
 
 	case SwampBiome:
 		// Swamps are mostly flat with occasional small hills
-		swampiness := sn.Noise1D(x*0.05) * 0.1
-		return baseHeight*0.2 + swampiness + biome.Elevation*0.1
+		return baseHeight + biome.Elevation*0.2
 
 	case TundraBiome:
 		// Tundra has permafrost ridges and gentle slopes
-		permafrost := sn.FractalNoise1D(x*0.01, 2, 0.015, 0.4, 0.5)
-		return baseHeight*0.4 + permafrost + biome.Elevation*0.3
+		return baseHeight + biome.Elevation*0.2
 
 	case JungleBiome:
 		// Jungle has varied terrain with steep hills
-		jungle := sn.FractalNoise1D(x*0.025, 4, 0.035, 0.8, 0.6)
-		return baseHeight*0.3 + jungle*0.7 + biome.Elevation*0.4
+		return baseHeight + biome.Elevation*0.2
 
 	case OceanBiome:
 		// Ocean floor variation
-		oceanFloor := sn.FractalNoise1D(x*0.008, 2, 0.01, 0.3, 0.5)
-		return baseHeight*0.2 + oceanFloor + biome.Elevation*0.5 - 0.8 // Lower base level
+		return baseHeight*0.5 + biome.Elevation*0.2
 
 	default:
 		return baseHeight + biome.Elevation*0.2
