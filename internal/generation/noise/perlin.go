@@ -1,5 +1,7 @@
 package noise
 
+// Utility functions are in helpers.go
+
 import (
 	"crypto/rand"
 	"encoding/binary"

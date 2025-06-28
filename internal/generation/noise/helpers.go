@@ -2,6 +2,17 @@ package noise
 
 // Utility functions for noise generation algorithms
 
+// Helper function to clamp values (inlined for performance)
+func clamp(value, min, max float64) float64 {
+	if value < min {
+		return min
+	}
+	if value > max {
+		return max
+	}
+	return value
+}
+
 func gradient1D(hash int, x float64) float64 {
 	return float64((hash&1)*2-1) * x // Convert hash to -1 or 1, multiply by distance
 }
@@ -25,6 +36,8 @@ func lerp(a, b, t float64) float64 {
 }
 
 // Linear Congruential Generator for deterministic random numbers
+// Used for deterministic noise-based randomness
+
 type lcg struct {
 	state int64
 }

@@ -26,7 +26,7 @@ func getSurfaceHeight(x int) int {
 	initTerrainNoise()
 
 	baseHeight := 12 // Base terrain height
-	heightNoise := terrainNoise.SimpleTerrainNoise(float64(x))
+	heightNoise := terrainNoise.TerrainNoise(float64(x))
 	height := baseHeight + int(heightNoise*8) // Simple scaling
 
 	if height < 3 {

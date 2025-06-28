@@ -1,5 +1,7 @@
 package noise
 
+// Utility functions are in helpers.go
+
 // Enhanced cave generation functions for underground tunnel systems with seed-based variety
 
 func (sn *PerlinNoise) FastCaveNoise(x, y float64) float64 {
