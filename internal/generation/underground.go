@@ -15,8 +15,8 @@ func GetUndergroundBlock(worldX, worldY, surfaceHeight int, rng *rand.Rand) bloc
 	// Check for ore veins with enhanced vein generation
 	oreType := GetOreType(worldX, worldY)
 	if oreType > 0 {
-		// Base ore chance from settings
-		oreChance := settings.OreVeinChance
+		// Base ore chance from settings, but increased for visibility
+		oreChance := settings.OreVeinChance * 4.0 // Significantly increased
 
 		// Check if this position extends an existing ore vein (makes ores cluster)
 		if IsOreVeinExtension(worldX, worldY, oreType) {
@@ -46,16 +46,16 @@ func GetUndergroundBlock(worldX, worldY, surfaceHeight int, rng *rand.Rand) bloc
 			return block.Dirt
 		}
 	} else if worldY < settings.ChunkHeight*settings.WorldChunksY-15 {
-		// Stone layer with variation
+		// Stone layer with reduced clay and more variety
 		stoneVariation := terrainNoise.Noise2D(float64(worldX)/15.0, float64(worldY)/15.0)
 		clayPockets := terrainNoise.Noise2D(float64(worldX)/8.0+500, float64(worldY)/8.0+500)
 
-		// Create clay pockets in stone
-		if clayPockets > 0.6 {
+		// Create clay pockets in stone (reduced frequency)
+		if clayPockets > 0.8 { // Made much rarer (was 0.6)
 			return block.Clay
 		} else if stoneVariation > 0.4 && depthFromSurface > 15 {
 			// Deeper stone areas can have ash pockets
-			if rng.Float64() < 0.15 {
+			if rng.Float64() < 0.10 { // Reduced ash frequency too
 				return block.Ash
 			} else {
 				return block.Stone

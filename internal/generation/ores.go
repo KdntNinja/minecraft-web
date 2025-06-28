@@ -20,7 +20,7 @@ func GetOreType(worldX, worldY int) int {
 	copperCluster := oreNoise.Noise2D(x/8.0+100, y/8.0+100)
 	if depth > 15 && depth < 80 {
 		copperCombined := copperVein*0.6 + copperCluster*0.4
-		if copperCombined < -0.55 {
+		if copperCombined < -0.3 { // Made much more common (was -0.55)
 			return 1 // Copper ore
 		}
 	}
@@ -30,7 +30,7 @@ func GetOreType(worldX, worldY int) int {
 	ironBranch := oreNoise.Noise2D(x/12.0+1100, y/12.0+1100)
 	if depth > 25 && depth < 120 {
 		ironCombined := ironVein*0.7 + ironBranch*0.3
-		if ironCombined < -0.6 {
+		if ironCombined < -0.35 { // Made more common (was -0.6)
 			return 2 // Iron ore
 		}
 	}
@@ -40,7 +40,7 @@ func GetOreType(worldX, worldY int) int {
 	goldPocket := oreNoise.Noise2D(x/6.0+2100, y/6.0+2100)
 	if depth > 60 {
 		goldCombined := goldVein*0.8 + goldPocket*0.2
-		if goldCombined < -0.72 {
+		if goldCombined < -0.5 { // Made more common (was -0.72)
 			return 3 // Gold ore
 		}
 	}
