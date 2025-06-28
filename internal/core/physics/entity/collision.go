@@ -6,8 +6,10 @@ import (
 	"github.com/KdntNinja/webcraft/internal/core/settings"
 )
 
-// IsSolid checks if a block at grid coordinates is solid
-func IsSolid(blocks [][]int, x, y int) bool {
+// IsSolid checks if a block at grid coordinates is solid, using grid offset
+func IsSolid(blocks [][]int, x, y int, offsetX, offsetY int) bool {
+	x -= offsetX
+	y -= offsetY
 	if y < 0 || x < 0 || y >= len(blocks) || x >= len(blocks[0]) {
 		return false
 	}
@@ -16,18 +18,15 @@ func IsSolid(blocks [][]int, x, y int) bool {
 
 // CollideBlocks handles AABB collision using resolv physics library
 func (a *AABB) CollideBlocks(blocks [][]int) {
-	// For now, let's use a simpler grid-based approach that works well
-	// We can optimize this later with full resolv integration
-
+	offsetX := a.GridOffsetX
+	offsetY := a.GridOffsetY
 	// Move horizontally first
 	if a.VX != 0 {
 		a.X += a.VX
-
-		// Check for horizontal collision using math.Floor for precision
 		if a.VX > 0 { // Moving right
 			rightEdge := int(math.Floor((a.X + float64(a.Width)) / float64(settings.TileSize)))
 			for y := int(math.Floor(a.Y / float64(settings.TileSize))); y <= int(math.Floor((a.Y+float64(a.Height)-1)/float64(settings.TileSize))); y++ {
-				if IsSolid(blocks, rightEdge, y) {
+				if IsSolid(blocks, rightEdge, y, offsetX, offsetY) {
 					a.X = float64(rightEdge*settings.TileSize - a.Width)
 					a.VX = 0
 					break
@@ -36,7 +35,7 @@ func (a *AABB) CollideBlocks(blocks [][]int) {
 		} else { // Moving left
 			leftEdge := int(math.Floor(a.X / float64(settings.TileSize)))
 			for y := int(math.Floor(a.Y / float64(settings.TileSize))); y <= int(math.Floor((a.Y+float64(a.Height)-1)/float64(settings.TileSize))); y++ {
-				if IsSolid(blocks, leftEdge, y) {
+				if IsSolid(blocks, leftEdge, y, offsetX, offsetY) {
 					a.X = float64((leftEdge + 1) * settings.TileSize)
 					a.VX = 0
 					break
@@ -49,12 +48,10 @@ func (a *AABB) CollideBlocks(blocks [][]int) {
 	a.OnGround = false
 	if a.VY != 0 {
 		a.Y += a.VY
-
-		// Check for vertical collision using math.Floor for precision
 		if a.VY > 0 { // Moving down (falling)
 			bottomEdge := int(math.Floor((a.Y + float64(a.Height)) / float64(settings.TileSize)))
 			for x := int(math.Floor(a.X / float64(settings.TileSize))); x <= int(math.Floor((a.X+float64(a.Width)-1)/float64(settings.TileSize))); x++ {
-				if IsSolid(blocks, x, bottomEdge) {
+				if IsSolid(blocks, x, bottomEdge, offsetX, offsetY) {
 					a.Y = float64(bottomEdge*settings.TileSize - a.Height)
 					a.VY = 0
 					a.OnGround = true
@@ -64,7 +61,7 @@ func (a *AABB) CollideBlocks(blocks [][]int) {
 		} else { // Moving up (jumping)
 			topEdge := int(math.Floor(a.Y / float64(settings.TileSize)))
 			for x := int(math.Floor(a.X / float64(settings.TileSize))); x <= int(math.Floor((a.X+float64(a.Width)-1)/float64(settings.TileSize))); x++ {
-				if IsSolid(blocks, x, topEdge) {
+				if IsSolid(blocks, x, topEdge, offsetX, offsetY) {
 					a.Y = float64((topEdge + 1) * settings.TileSize)
 					a.VY = 0
 					break
@@ -77,12 +74,10 @@ func (a *AABB) CollideBlocks(blocks [][]int) {
 	if !a.OnGround && a.VY >= 0 {
 		bottomY := a.Y + float64(a.Height)
 		bottomEdge := int(math.Floor(bottomY / float64(settings.TileSize)))
-
-		// Instant settle if within 2 pixels of ground
 		groundY := float64(bottomEdge * settings.TileSize)
 		if bottomY >= groundY && bottomY <= groundY+2.0 {
 			for x := int(math.Floor(a.X / float64(settings.TileSize))); x <= int(math.Floor((a.X+float64(a.Width)-1)/float64(settings.TileSize))); x++ {
-				if IsSolid(blocks, x, bottomEdge) {
+				if IsSolid(blocks, x, bottomEdge, offsetX, offsetY) {
 					a.Y = groundY - float64(a.Height)
 					a.VY = 0
 					a.OnGround = true
@@ -94,17 +89,12 @@ func (a *AABB) CollideBlocks(blocks [][]int) {
 
 	// Instant stabilization when on ground using math.Floor for precision
 	if a.OnGround {
-		// Snap immediately to exact ground position
 		bottomY := a.Y + float64(a.Height)
 		bottomEdge := int(math.Floor(bottomY / float64(settings.TileSize)))
 		groundY := float64(bottomEdge * settings.TileSize)
-
-		// Snap if within 1 pixel for instant settling
 		if bottomY > groundY && bottomY < groundY+1.0 {
 			a.Y = groundY - float64(a.Height)
 		}
-
-		// Stop all vertical movement when grounded
 		if a.VY > -0.1 && a.VY < 0.1 {
 			a.VY = 0
 		}

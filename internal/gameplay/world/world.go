@@ -5,39 +5,44 @@ import (
 	"github.com/KdntNinja/webcraft/internal/core/physics/entity"
 	"github.com/KdntNinja/webcraft/internal/core/settings"
 	"github.com/KdntNinja/webcraft/internal/gameplay/player"
+	"github.com/KdntNinja/webcraft/internal/generation/terrain"
 )
 
-type World struct {
-	Blocks    [][]block.Chunk // [vertical][horizontal] for multiple columns
-	Entities  entity.Entities
-	MinChunkX int // Minimum chunk X coordinate in the world grid
-	MinChunkY int // Minimum chunk Y coordinate in the world grid
+type ChunkCoord struct {
+	X int
+	Y int
 }
 
-// NewWorld constructs a new World instance with generated chunks
-func NewWorld(numChunksY int, centerChunkX int) *World {
-	width := 7 // 3 chunks left, 1 center, 3 right
-	blocks := make([][]block.Chunk, numChunksY)
+type World struct {
+	Chunks     map[ChunkCoord]block.Chunk // Infinite world: map of chunk coordinates to chunks
+	ChunkCache map[ChunkCoord]block.Chunk // Cache for previously generated chunks
+	Entities   entity.Entities
+	MinChunkX  int // Minimum chunk X coordinate in the world grid (optional, can remove)
+	MinChunkY  int // Minimum chunk Y coordinate in the world grid (optional, can remove)
+}
+
+// NewWorld constructs a new World instance with generated chunks, using the provided seed
+func NewWorld(numChunksY int, centerChunkX int, seed int64) *World {
+	terrain.ResetWorldGeneration(seed)
+	w := &World{
+		Chunks:     make(map[ChunkCoord]block.Chunk),
+		ChunkCache: make(map[ChunkCoord]block.Chunk),
+		Entities:   entity.Entities{},
+	}
+	// Generate initial window of chunks around center
 	for cy := 0; cy < numChunksY; cy++ {
-		blocks[cy] = make([]block.Chunk, width)
-		for cx := 0; cx < width; cx++ {
-			chunkX := centerChunkX + cx - 3 // -3 to +3 relative to center
-			blocks[cy][cx] = GenerateChunk(chunkX, cy)
+		for cx := -3; cx <= 3; cx++ {
+			coord := ChunkCoord{X: centerChunkX + cx, Y: cy}
+			w.Chunks[coord] = GenerateChunk(coord.X, coord.Y)
 		}
 	}
-	w := &World{
-		Blocks:    blocks,
-		Entities:  entity.Entities{},
-		MinChunkX: centerChunkX - 3, // Start with -3 offset
-		MinChunkY: 0,                // Start at Y=0
-	}
 	// Add player entity at center
-	centerChunkCol := len(blocks[0]) / 2                                       // Get center chunk column
-	centerBlockX := centerChunkCol*settings.ChunkWidth + settings.ChunkWidth/2 // Center of center chunk
+	centerChunkCol := 0 // center is always X=0
+	centerBlockX := centerChunkCol*settings.ChunkWidth + settings.ChunkWidth/2
 	px := float64(centerBlockX * settings.TileSize)
 
 	// Find the surface height at the center position
-	surfaceY := FindSurfaceHeight(centerBlockX, blocks)
+	surfaceY := FindSurfaceHeight(centerBlockX, w)
 
 	// Spawn player 2 blocks above the surface for safety
 	spawnY := surfaceY - 2
@@ -52,38 +57,92 @@ func NewWorld(numChunksY int, centerChunkX int) *World {
 	return w
 }
 
-// ToIntGrid flattens the world's blocks into a [][]int grid for entity collision
-func (w *World) ToIntGrid() [][]int {
-	if len(w.Blocks) == 0 || len(w.Blocks[0]) == 0 {
-		return [][]int{}
+// ToIntGrid flattens the world's blocks into a [][]int grid for entity collision, and returns the offset (minX, minY)
+func (w *World) ToIntGrid() ([][]int, int, int) {
+	if len(w.Chunks) == 0 {
+		return [][]int{}, 0, 0
 	}
-
-	height := len(w.Blocks) * settings.ChunkHeight
-	width := len(w.Blocks[0]) * settings.ChunkWidth
+	minX, maxX, minY, maxY := 0, 0, 0, 0
+	first := true
+	for coord := range w.Chunks {
+		if first {
+			minX, maxX, minY, maxY = coord.X, coord.X, coord.Y, coord.Y
+			first = false
+		} else {
+			if coord.X < minX {
+				minX = coord.X
+			}
+			if coord.X > maxX {
+				maxX = coord.X
+			}
+			if coord.Y < minY {
+				minY = coord.Y
+			}
+			if coord.Y > maxY {
+				maxY = coord.Y
+			}
+		}
+	}
+	width := (maxX - minX + 1) * settings.ChunkWidth
+	height := (maxY - minY + 1) * settings.ChunkHeight
 	grid := make([][]int, height)
-
 	for y := 0; y < height; y++ {
 		grid[y] = make([]int, width)
-		cy := y / settings.ChunkHeight
+		cy := minY + y/settings.ChunkHeight
 		inChunkY := y % settings.ChunkHeight
-
-		// Bounds check for cy
-		if cy >= len(w.Blocks) {
-			continue
-		}
-
 		for x := 0; x < width; x++ {
-			cx := x / settings.ChunkWidth
+			cx := minX + x/settings.ChunkWidth
 			inChunkX := x % settings.ChunkWidth
-
-			// Bounds check for cx
-			if cx >= len(w.Blocks[cy]) {
-				grid[y][x] = int(block.Air) // Default to air if chunk doesn't exist
+			coord := ChunkCoord{X: cx, Y: cy}
+			chunk, ok := w.Chunks[coord]
+			if !ok || len(chunk) == 0 {
+				grid[y][x] = int(block.Air)
 				continue
 			}
-
-			grid[y][x] = int(w.Blocks[cy][cx][inChunkY][inChunkX])
+			grid[y][x] = int(chunk[inChunkY][inChunkX])
 		}
 	}
-	return grid
+	return grid, minX * settings.ChunkWidth, minY * settings.ChunkHeight
+}
+
+// UpdateChunksWindow generates and manages chunks based only on distance to the player (no window logic)
+func (w *World) UpdateChunksWindow(playerX, playerY float64) {
+	playerChunkX := int(playerX) / (settings.ChunkWidth * settings.TileSize)
+	playerChunkY := int(playerY) / (settings.ChunkHeight * settings.TileSize)
+
+	radiusLeft := settings.ChunkGenRadiusLeft
+	radiusRight := settings.ChunkGenRadiusRight
+	buffer := settings.ChunkGenBuffer
+
+	// Use a set to track which chunks should be present after this update
+	needed := make(map[ChunkCoord]struct{})
+
+	// 1. Generate all chunks within the asymmetric radius+buffer of the player
+	for cy := playerChunkY - radiusLeft - buffer; cy <= playerChunkY+radiusLeft+buffer; cy++ {
+		for cx := playerChunkX - radiusLeft - buffer; cx <= playerChunkX+radiusRight+buffer; cx++ {
+			coord := ChunkCoord{X: cx, Y: cy}
+			needed[coord] = struct{}{}
+			if _, ok := w.Chunks[coord]; !ok || len(w.Chunks[coord]) == 0 {
+				// Try to restore from cache first
+				if cached, found := w.ChunkCache[coord]; found {
+					w.Chunks[coord] = cached
+				} else {
+					w.Chunks[coord] = GenerateChunk(cx, cy)
+				}
+			}
+		}
+	}
+
+	// 2. Remove only chunks outside the (asymmetric) area, and cache them
+	// Avoid modifying the map while iterating: collect toRemove first
+	toRemove := make([]ChunkCoord, 0)
+	for coord := range w.Chunks {
+		if _, keep := needed[coord]; !keep {
+			toRemove = append(toRemove, coord)
+		}
+	}
+	for _, coord := range toRemove {
+		w.ChunkCache[coord] = w.Chunks[coord]
+		delete(w.Chunks, coord)
+	}
 }

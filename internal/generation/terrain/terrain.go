@@ -1,6 +1,9 @@
 package terrain
 
 import (
+	"math/rand"
+	"time"
+
 	"github.com/KdntNinja/webcraft/internal/core/engine/block"
 	"github.com/KdntNinja/webcraft/internal/core/settings"
 	"github.com/KdntNinja/webcraft/internal/generation/noise"
@@ -9,11 +12,19 @@ import (
 var (
 	terrainHeights = make(map[int]int)
 	terrainNoise   *noise.PerlinNoise
+	terrainSeed    int64
 )
+
+func init() {
+	// Set the function variable in chunks.go to avoid import cycle
+	GetWorldSeedFunc = GetWorldSeed
+}
 
 func initTerrainNoise() {
 	if terrainNoise == nil {
-		terrainNoise = noise.NewPerlinNoise(42) // Use a fixed seed for simplicity
+		rand.Seed(time.Now().UnixNano())
+		terrainSeed = int64(rand.Intn(1000000) + 1) // Random seed in [1, 1000000]
+		terrainNoise = noise.NewPerlinNoise(terrainSeed)
 		terrainHeights = make(map[int]int)
 	}
 }
@@ -23,11 +34,16 @@ func getSurfaceHeight(x int) int {
 	if ok {
 		return h
 	}
-	initTerrainNoise()
 
-	baseHeight := 12 // Base terrain height
-	heightNoise := terrainNoise.TerrainNoise(float64(x))
-	height := baseHeight + int(heightNoise*8) // Simple scaling
+	// Improved: Use fractal noise for more interesting terrain
+	baseHeight := settings.SurfaceBaseHeight
+	fx := float64(x)
+	// Combine several octaves of noise for hills, valleys, and detail
+	hill := terrainNoise.Noise1D(fx*0.01) * float64(settings.SurfaceHeightVar)
+	valley := terrainNoise.Noise1D(fx*0.03) * (float64(settings.SurfaceHeightVar) * 0.5)
+	detail := terrainNoise.Noise1D(fx*0.09) * (float64(settings.SurfaceHeightVar) * 0.25)
+
+	height := baseHeight + int(hill+valley+detail)
 
 	if height < 3 {
 		height = 3
@@ -38,6 +54,18 @@ func getSurfaceHeight(x int) int {
 
 	terrainHeights[x] = height
 	return height
+}
+
+// GenerateChunksInView generates all chunks in range of the player's view (centered on player)
+func GenerateChunksInView(playerX, playerY float64, viewRadius int) {
+	playerChunkX := int(playerX) / (settings.ChunkWidth * settings.TileSize)
+	playerChunkY := int(playerY) / (settings.ChunkHeight * settings.TileSize)
+
+	for cy := playerChunkY - viewRadius; cy <= playerChunkY+viewRadius; cy++ {
+		for cx := playerChunkX - viewRadius; cx <= playerChunkX+viewRadius; cx++ {
+			_ = GenerateChunk(cx, cy) // This will generate and cache the chunk if needed
+		}
+	}
 }
 
 // BiomeType represents different surface biomes
@@ -55,9 +83,6 @@ func getBiome(x int) BiomeType {
 
 // getOreType determines what ore should be placed using simple noise
 func getOreType(x, y, depthFromSurface int) block.BlockType {
-	initTerrainNoise()
-
-	// Use simple noise for ore generation
 	oreNoise := terrainNoise.Noise2D(float64(x), float64(y))
 
 	// Map ore type numbers to block types
@@ -79,8 +104,6 @@ func getOreType(x, y, depthFromSurface int) block.BlockType {
 
 // isInCave determines if a position should be a cave using simple noise
 func isInCave(x, y int) bool {
-	initTerrainNoise()
-
 	// Don't generate caves too close to surface
 	if y < 8 {
 		return false
@@ -98,12 +121,10 @@ func isUnderworld(y, worldHeight int) bool {
 	return y > worldHeight-6 // Bottom 6 layers are underworld
 }
 
-// ResetWorldGeneration forces regeneration with new random seeds
-func ResetWorldGeneration() {
-	// Reset terrain noise to nil to force regeneration with new seed
-	terrainNoise = nil
-
-	// Clear all caches
+// ResetWorldGeneration forces regeneration with a new provided seed
+func ResetWorldGeneration(seed int64) {
+	terrainNoise = noise.NewPerlinNoise(seed)
+	terrainSeed = seed
 	terrainHeights = make(map[int]int)
 	chunkCache = make(map[string]block.Chunk)
 }
@@ -111,13 +132,11 @@ func ResetWorldGeneration() {
 // GetWorldSeed returns the current world seed for display or saving
 func GetWorldSeed() int64 {
 	initTerrainNoise()
-	return 42 // Fixed seed, as randomness is not used in this simplified version
+	return terrainSeed
 }
 
 // getBlockType returns the block type for a given world position, generating Minecraft-like layers
 func getBlockType(x, y int) block.BlockType {
-	initTerrainNoise()
-
 	surfaceY := getSurfaceHeight(x)
 	depth := y - surfaceY
 

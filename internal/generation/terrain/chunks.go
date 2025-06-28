@@ -9,6 +9,8 @@ import (
 	"github.com/KdntNinja/webcraft/internal/generation/noise"
 )
 
+var GetWorldSeedFunc func() int64
+
 // GenerateVisibleTerrain ensures chunks have some visible terrain for testing
 func GenerateVisibleTerrain(chunkX, chunkY int) block.Chunk {
 	var chunk block.Chunk
@@ -103,7 +105,11 @@ func GenerateChunk(chunkX, chunkY int) block.Chunk {
 	var chunk block.Chunk
 
 	chunkStartY := chunkY * settings.ChunkHeight
-	terrainNoise := noise.NewPerlinNoise(42)
+	var seed int64 = 42
+	if GetWorldSeedFunc != nil {
+		seed = GetWorldSeedFunc()
+	}
+	terrainNoise := noise.NewPerlinNoise(seed)
 
 	for y := 0; y < settings.ChunkHeight; y++ {
 		globalY := chunkStartY + y

@@ -15,6 +15,8 @@ type AABB struct {
 	Width, Height int     // Size in pixels
 	VX, VY        float64 // Velocity in pixels per frame
 	OnGround      bool    // Whether entity is touching ground
+	GridOffsetX   int     // Offset for collision grid X (for infinite world)
+	GridOffsetY   int     // Offset for collision grid Y (for infinite world)
 }
 
 // Entity interface implementations for AABB
