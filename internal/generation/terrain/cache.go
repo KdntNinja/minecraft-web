@@ -7,9 +7,9 @@ import (
 )
 
 var (
-	// Chunk cache for improved performance
+	// Chunk cache for improved performance - increased size for better caching
 	chunkCache   = make(map[string]block.Chunk)
-	maxCacheSize = 100
+	maxCacheSize = 200 // Increased from 100 for better performance
 )
 
 // getCachedChunk retrieves a chunk from cache if it exists

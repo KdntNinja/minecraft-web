@@ -12,36 +12,22 @@ const (
 	Sand
 	Clay
 	Snow
-	Ice
 	// Stone variants
 	Stone
-	Granite
-	Marble
-	Obsidian
 	// Ore blocks
 	CopperOre
 	IronOre
-	SilverOre
 	GoldOre
-	PlatinumOre
 	// Underground blocks
 	Mud
 	Ash
-	Silt
-	// Cave blocks
-	Cobweb
-	// Hell/Underworld blocks
-	Hellstone
-	HellstoneOre
 	// Tree blocks
 	Wood
 	Leaves
-	// Additional blocks for biome variety
-	Sandstone
-	Limestone
 	// Liquids (for future use)
 	Water
-	Lava
+	// Hell/Underworld blocks (simplified)
+	Hellstone
 )
 
 type Chunk [settings.ChunkHeight][settings.ChunkWidth]BlockType

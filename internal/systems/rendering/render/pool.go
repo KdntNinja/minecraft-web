@@ -5,14 +5,14 @@ import (
 )
 
 var (
-	// Object pooling for performance
+	// Object pooling for performance - increased pool size
 	drawOptionsPool []*ebiten.DrawImageOptions
 	poolIndex       int
 )
 
 func initObjectPool() {
-	// Initialize object pool for draw options
-	drawOptionsPool = make([]*ebiten.DrawImageOptions, 50)
+	// Initialize object pool for draw options - increased size for better performance
+	drawOptionsPool = make([]*ebiten.DrawImageOptions, 100) // Increased from 50
 	for i := range drawOptionsPool {
 		drawOptionsPool[i] = &ebiten.DrawImageOptions{}
 	}

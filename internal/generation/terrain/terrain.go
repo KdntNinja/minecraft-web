@@ -85,18 +85,14 @@ func getBiome(x int) BiomeType {
 func getOreType(x, y, depthFromSurface int) block.BlockType {
 	oreNoise := terrainNoise.Noise2D(float64(x), float64(y))
 
-	// Map ore type numbers to block types
+	// Map ore type numbers to block types (simplified)
 	switch {
-	case oreNoise < -0.3:
+	case oreNoise < -0.4:
 		return block.CopperOre
 	case oreNoise < 0:
 		return block.IronOre
-	case oreNoise < 0.3:
-		return block.SilverOre
 	case oreNoise < 0.6:
 		return block.GoldOre
-	case oreNoise < 0.9:
-		return block.PlatinumOre
 	default:
 		return block.Stone // Default to stone
 	}

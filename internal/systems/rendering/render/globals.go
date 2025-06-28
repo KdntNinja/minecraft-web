@@ -28,7 +28,7 @@ func initTileImages() {
 	batchRenderer = &ebiten.DrawImageOptions{}
 
 	// Create tile images for all block types
-	for blockType := block.Air; blockType <= block.Lava; blockType++ {
+	for blockType := block.Air; blockType <= block.Hellstone; blockType++ {
 		if blockType == block.Air {
 			continue // Skip air blocks
 		}

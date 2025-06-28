@@ -24,6 +24,10 @@ type Game struct {
 	// Pre-allocated images to reduce memory allocation
 	playerImage *ebiten.Image
 	frameCount  int // For frame rate limiting
+
+	// Performance monitoring
+	fpsCounter    int     // Frame counter for FPS calculation
+	lastFPSUpdate float64 // Last time FPS was calculated
 }
 
 func NewGame() *Game {
@@ -44,6 +48,15 @@ func NewGame() *Game {
 	// Create a simple world with fixed size, passing the seed
 	g.World = world.NewWorld(settings.ChunkHeight/2, 0, seed)
 
+	// Initialize camera position to follow the player's spawn location with tighter centering
+	if len(g.World.Entities) > 0 {
+		if player, ok := g.World.Entities[0].(*player.Player); ok {
+			// Center camera more tightly on the player for a zoomed-in feel
+			g.CameraX = player.X + float64(settings.PlayerWidth)/2 - float64(g.LastScreenW)/2
+			g.CameraY = player.Y + float64(settings.PlayerHeight)/2 - float64(g.LastScreenH)/2 - float64(settings.TileSize*2) // Offset upward slightly
+		}
+	}
+
 	return g
 }
 
@@ -54,27 +67,27 @@ func (g *Game) Update() error {
 
 	g.frameCount++
 
-	// --- Dynamic chunk window management ---
-	// Find player position (assume first entity is player)
-	if len(g.World.Entities) > 0 {
-		if player, ok := g.World.Entities[0].(*player.Player); ok {
-			g.World.UpdateChunksWindow(player.X, player.Y)
-		}
+	// Update only entities near the camera/screen - cached grid for better performance
+	var grid [][]int
+	var gridOffsetX, gridOffsetY int
+
+	// Only regenerate collision grid when necessary (every few frames or when chunks change)
+	if g.frameCount%4 == 0 || g.World.IsGridDirty() {
+		grid, gridOffsetX, gridOffsetY = g.World.ToIntGrid()
+	} else {
+		grid, gridOffsetX, gridOffsetY = g.World.GetCachedGrid()
 	}
 
-	// Update only entities near the camera/screen
-	grid, gridOffsetX, gridOffsetY := g.World.ToIntGrid()
-	visibleEntities := make([]interface {
-		Update()
-		CollideBlocks([][]int)
-	}, 0, len(g.World.Entities))
+	// Pre-calculate camera bounds once
 	camLeft := g.CameraX - float64(settings.TileSize*2)
 	camRight := g.CameraX + float64(g.LastScreenW) + float64(settings.TileSize*2)
 	camTop := g.CameraY - float64(settings.TileSize*2)
 	camBottom := g.CameraY + float64(g.LastScreenH) + float64(settings.TileSize*2)
 
+	// Update entities (reduce slice allocation by reusing)
 	for _, e := range g.World.Entities {
 		if p, ok := e.(*player.Player); ok {
+			// Frustum culling for entities
 			if p.X+float64(settings.PlayerWidth) < camLeft || p.X > camRight ||
 				p.Y+float64(settings.PlayerHeight) < camTop || p.Y > camBottom {
 				continue // Skip entities far from view
@@ -82,24 +95,21 @@ func (g *Game) Update() error {
 			// Set the offset for the player's collision system
 			p.AABB.GridOffsetX = gridOffsetX
 			p.AABB.GridOffsetY = gridOffsetY
-			visibleEntities = append(visibleEntities, p)
+
+			p.Update()
+			p.CollideBlocks(grid)
 		}
 	}
 
-	for _, e := range visibleEntities {
-		e.Update()
-		e.CollideBlocks(grid)
-	}
-
-	// Update camera to follow player (only every few frames for smoother performance)
-	if g.frameCount%2 == 0 && len(g.World.Entities) > 0 {
+	// Update camera to follow player more responsively for zoomed-in feel
+	if len(g.World.Entities) > 0 {
 		if player, ok := g.World.Entities[0].(*player.Player); ok {
-			// Smooth camera following with some easing
+			// Tighter camera following with offset for better view ahead
 			targetCameraX := player.X + float64(settings.PlayerWidth)/2 - float64(g.LastScreenW)/2
-			targetCameraY := player.Y + float64(settings.PlayerHeight)/2 - float64(g.LastScreenH)/2
+			targetCameraY := player.Y + float64(settings.PlayerHeight)/2 - float64(g.LastScreenH)/2 - float64(settings.TileSize*2)
 
-			// Smooth camera movement (lerp) - reduced for better performance
-			lerpFactor := 0.05
+			// More responsive camera movement for zoomed-in feel
+			lerpFactor := 0.12 // Increased from 0.05 for more responsive following
 			g.CameraX += (targetCameraX - g.CameraX) * lerpFactor
 			g.CameraY += (targetCameraY - g.CameraY) * lerpFactor
 		}
@@ -121,21 +131,27 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	// Render world directly to screen (avoid intermediate image allocation)
 	render.DrawWithCamera(g.World.Chunks, screen, g.CameraX, g.CameraY)
 
-	// Draw only entities near the camera/screen for performance
+	// Pre-calculate camera bounds for entity culling
 	camLeft := g.CameraX - float64(settings.TileSize*2)
 	camRight := g.CameraX + float64(g.LastScreenW) + float64(settings.TileSize*2)
 	camTop := g.CameraY - float64(settings.TileSize*2)
 	camBottom := g.CameraY + float64(g.LastScreenH) + float64(settings.TileSize*2)
 
+	// Reusable draw options to reduce allocations
+	var op ebiten.DrawImageOptions
+
+	// Draw only entities near the camera/screen for performance
 	for _, e := range g.World.Entities {
 		if p, ok := e.(*player.Player); ok {
+			// Use pre-calculated camera bounds
 			if p.X+float64(settings.PlayerWidth) < camLeft || p.X > camRight ||
 				p.Y+float64(settings.PlayerHeight) < camTop || p.Y > camBottom {
 				continue // Skip entities far from view
 			}
 			px, py := int(p.X-g.CameraX), int(p.Y-g.CameraY)
 			if px > -settings.PlayerWidth && px < g.LastScreenW && py > -settings.PlayerHeight && py < g.LastScreenH {
-				var op ebiten.DrawImageOptions
+				// Reuse the DrawImageOptions instead of creating new ones
+				op.GeoM.Reset()
 				op.GeoM.Translate(float64(px), float64(py))
 				screen.DrawImage(g.playerImage, &op)
 			}

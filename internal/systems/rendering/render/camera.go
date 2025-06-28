@@ -33,6 +33,9 @@ func DrawWithCamera(chunks map[world.ChunkCoord]block.Chunk, screen *ebiten.Imag
 	startChunkY := startTileY / settings.ChunkHeight
 	endChunkY := (endTileY - 1) / settings.ChunkHeight
 
+	// Reuse draw options to reduce allocations
+	drawOpts := getDrawOptions()
+
 	for coord, chunk := range chunks {
 		// If any part of the chunk is in the visible horizontal window, render the whole chunk horizontally
 		if coord.X < startChunkX || coord.X > endChunkX || coord.Y < startChunkY || coord.Y > endChunkY {
@@ -58,9 +61,9 @@ func DrawWithCamera(chunks map[world.ChunkCoord]block.Chunk, screen *ebiten.Imag
 				if tile == nil {
 					continue
 				}
-				batchRenderer.GeoM.Reset()
-				batchRenderer.GeoM.Translate(px, py)
-				screen.DrawImage(tile, batchRenderer)
+				drawOpts.GeoM.Reset()
+				drawOpts.GeoM.Translate(px, py)
+				screen.DrawImage(tile, drawOpts)
 			}
 		}
 	}

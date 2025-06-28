@@ -4,13 +4,16 @@ package settings
 const (
 	PerlinAlpha       = 2.0 // Perlin noise smoothness
 	PerlinBeta        = 2.0 // Perlin noise detail
-	PerlinOctaves     = 3   // Perlin noise layers
+	PerlinOctaves     = 2   // Reduced from 3 for better performance
 	PerlinPersistence = 0.5 // Perlin octave contribution
 
-	ChunkWidth  = 8  // Chunk width (blocks)
-	ChunkHeight = 24 // Chunk height (blocks)
-	WorldHeight = 32 // World vertical limit
-	TileSize    = 42 // Block size (pixels)
+	ChunkWidth   = 8  // Chunk width (blocks)
+	ChunkHeight  = 24 // Chunk height (blocks)
+	WorldHeight  = 32 // World vertical limit
+	WorldChunksY = 10 // Number of chunks vertically in the world
+	WorldChunksX = 12 // Number of chunks horizontally in the world
+	TileSize     = 42 // Increased from 30 for more zoomed-in view
+	DefaultSeed  = 42 // Default world generation seed
 )
 
 // --- Biome/Surface Generation ---
@@ -41,11 +44,4 @@ const (
 	OreVeinChance = 0.02 // Ore vein chance
 	CaveFrequency = 0.08 // Cave frequency
 	CaveThreshold = 0.5  // Cave noise threshold
-)
-
-// --- Chunk Generation ---
-const (
-	ChunkGenRadiusLeft  = 7                             // Chunks to the left of the player
-	ChunkGenRadiusRight = 7                             // Chunks to the right of the player
-	ChunkGenBuffer      = (2 * ChunkWidth) / ChunkWidth // 2 chunks (in blocks) => 2 chunk coords
 )

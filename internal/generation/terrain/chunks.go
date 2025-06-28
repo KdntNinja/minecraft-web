@@ -16,7 +16,7 @@ func GenerateVisibleTerrain(chunkX, chunkY int) block.Chunk {
 	var chunk block.Chunk
 
 	// Use Perlin noise for visible terrain
-	terrainNoise := noise.NewPerlinNoise(42)
+	terrainNoise := noise.NewPerlinNoise(settings.DefaultSeed)
 
 	// Calculate the global Y start for this chunk
 	chunkStartY := chunkY * settings.ChunkHeight
@@ -105,7 +105,7 @@ func GenerateChunk(chunkX, chunkY int) block.Chunk {
 	var chunk block.Chunk
 
 	chunkStartY := chunkY * settings.ChunkHeight
-	var seed int64 = 42
+	var seed int64 = settings.DefaultSeed
 	if GetWorldSeedFunc != nil {
 		seed = GetWorldSeedFunc()
 	}
@@ -160,8 +160,8 @@ func GenerateChunk(chunkX, chunkY int) block.Chunk {
 				}
 			} else if globalY < settings.ChunkHeight*chunkY+settings.ChunkHeight-16 {
 				// Stone layer, with caves and ores
-				caveNoise := terrainNoise.Noise2D(float64(globalX)*0.08, float64(globalY)*0.08)
-				if caveNoise > 0.55 {
+				caveNoise := terrainNoise.Noise2D(float64(globalX)*settings.CaveFrequency, float64(globalY)*settings.CaveFrequency)
+				if caveNoise > settings.CaveThreshold+0.05 { // Slightly higher than base threshold
 					chunk[y][x] = block.Air
 				} else {
 					oreNoise := terrainNoise.Noise2D(float64(globalX)*0.13, float64(globalY)*0.13)
@@ -279,14 +279,14 @@ func generateOre(globalX, globalY, depthFromSurface int, biome noise.BiomeData, 
 			return block.GoldOre
 		}
 		if silverNoise > 0.85 {
-			return block.SilverOre
+			return block.IronOre
 		}
 	} else if depthFromSurface >= 60 {
 		// Deep ores: Platinum and rare ores
 		platinumNoise := terrainNoise.FractalNoise2D(x*0.04+400, y*0.05, 4, 0.05, 1.4, 0.3) * biomeOreMultiplier
 
 		if platinumNoise > 0.92 {
-			return block.PlatinumOre
+			return block.GoldOre
 		}
 	}
 
@@ -332,9 +332,9 @@ func getUndergroundBlock(depthFromSurface int, biome noise.BiomeData, terrainNoi
 			// Some variety in stone types
 			switch biome.Type {
 			case 2: // DesertBiome
-				return block.Sandstone
+				return block.Sand // Replace Sandstone with Sand
 			case 3: // MountainBiome
-				return block.Granite
+				return block.Stone // Replace Granite with Stone
 			default:
 				return block.Stone
 			}
@@ -347,43 +347,43 @@ func getUndergroundBlock(depthFromSurface int, biome noise.BiomeData, terrainNoi
 			// Stone variants based on biome
 			switch biome.Type {
 			case 3: // MountainBiome
-				return block.Granite
+				return block.Stone // Replace Granite with Stone
 			case 7: // OceanBiome (if underground)
-				return block.Marble
+				return block.Stone // Replace Marble with Stone
 			case 2: // DesertBiome
-				return block.Sandstone
+				return block.Sand // Replace Sandstone with Sand
 			default:
 				return block.Stone
 			}
 		} else if stoneVariation > 0.3 {
 			return block.Stone
 		} else {
-			// Add some limestone for variety
-			return block.Limestone
+			// Add some clay for variety instead of limestone
+			return block.Clay
 		}
 	}
 }
 
 // Tree placement with biome-specific logic
 func shouldPlaceTree(globalX int, biome noise.BiomeData) bool {
-	treeChance := 0.05 // Increased base 5% chance for more visible trees
+	treeChance := settings.TreeChance * 0.33 // Base tree chance (reduced from default)
 
 	switch biome.Type {
 	case 1: // ForestBiome
-		treeChance = 0.25 // 25% chance in forests
+		treeChance = settings.TreeChance * 1.67 // 25% (0.15 * 1.67)
 	case 6: // JungleBiome
-		treeChance = 0.3 // 30% chance in jungles
+		treeChance = settings.TreeChance * 2.0 // 30% (0.15 * 2.0)
 	case 0: // PlainseBiome
-		treeChance = 0.08 // 8% chance in plains
+		treeChance = settings.TreeChance * 0.53 // 8% (0.15 * 0.53)
 	case 4: // SwampBiome
-		treeChance = 0.15 // 15% chance in swamps
+		treeChance = settings.TreeChance // Use default 15%
 	case 2, 5: // DesertBiome, TundraBiome
-		treeChance = 0.01 // Still rare but not invisible
+		treeChance = settings.TreeChance * 0.067 // 1% (0.15 * 0.067)
 	case 3: // MountainBiome
 		if biome.Temperature > -0.3 {
-			treeChance = 0.12 // Some trees on warmer mountains
+			treeChance = settings.TreeChance * 0.8 // 12% (0.15 * 0.8)
 		} else {
-			treeChance = 0.02 // Rare on cold mountains
+			treeChance = settings.TreeChance * 0.133 // 2% (0.15 * 0.133)
 		}
 	}
 
@@ -393,20 +393,20 @@ func shouldPlaceTree(globalX int, biome noise.BiomeData) bool {
 }
 
 func shouldPlaceTreeByID(globalX int, biomeID int) bool {
-	treeChance := 0.05
+	treeChance := settings.TreeChance * 0.33 // Base tree chance
 	switch biomeID {
 	case 1:
-		treeChance = 0.25
+		treeChance = settings.TreeChance * 1.67 // 25%
 	case 6:
-		treeChance = 0.3
+		treeChance = settings.TreeChance * 2.0 // 30%
 	case 0:
-		treeChance = 0.08
+		treeChance = settings.TreeChance * 0.53 // 8%
 	case 4:
-		treeChance = 0.15
+		treeChance = settings.TreeChance // 15%
 	case 2, 5:
-		treeChance = 0.01
+		treeChance = settings.TreeChance * 0.067 // 1%
 	case 3:
-		treeChance = 0.07
+		treeChance = settings.TreeChance * 0.47 // 7%
 	}
 	hash := float64(((globalX*73856093)^(globalX*19349663))%1000000) / 1000000.0
 	return hash < treeChance
