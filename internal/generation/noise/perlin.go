@@ -6,8 +6,9 @@ import (
 	"math"
 	"time"
 
-	"github.com/KdntNinja/webcraft/internal/core/settings"
 	"github.com/aquilax/go-perlin"
+
+	"github.com/KdntNinja/webcraft/internal/core/settings"
 )
 
 // PerlinNoise implements a wrapper around the aquilax/go-perlin package for Perlin noise generation
