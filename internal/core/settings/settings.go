@@ -26,16 +26,16 @@ const (
 
 // --- Player/Entity Physics ---
 const (
-	PlayerWidth        = TileSize        // Player width (px)
-	PlayerHeight       = TileSize * 2    // Player height (px)
-	PlayerMoveSpeed    = 4.3             // Player move speed
-	PlayerJumpSpeed    = -12.0           // Player jump velocity
-	PlayerGravity      = 0.7             // Player gravity
-	PlayerMaxFallSpeed = 15.0            // Player terminal velocity
+	PlayerWidth        = TileSize     // Player width (px)
+	PlayerHeight       = TileSize * 2 // Player height (px)
+	PlayerMoveSpeed    = 4.3          // Player move speed
+	PlayerJumpSpeed    = -12.0        // Player jump velocity
+	PlayerGravity      = 0.7          // Player gravity
+	PlayerMaxFallSpeed = 15.0         // Player terminal velocity
 
-	PlayerGroundFriction = 0.6  // Ground friction
-	PlayerAirResistance  = 0.98 // Air resistance
-	PlayerGroundThreshold = 0.1 // Jump ground threshold
+	PlayerGroundFriction  = 0.6  // Ground friction
+	PlayerAirResistance   = 0.98 // Air resistance
+	PlayerGroundThreshold = 0.1  // Jump ground threshold
 )
 
 // --- Ore/Cave Generation ---

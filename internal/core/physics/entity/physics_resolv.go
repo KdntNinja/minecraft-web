@@ -1,8 +1,9 @@
 package entity
 
 import (
-	"github.com/KdntNinja/webcraft/internal/core/settings"
 	"github.com/solarlune/resolv"
+
+	"github.com/KdntNinja/webcraft/internal/core/settings"
 )
 
 // PhysicsWorld manages the physics simulation using resolv
