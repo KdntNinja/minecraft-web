@@ -32,21 +32,34 @@ func getSurfaceHeight(x int) int {
 		return h
 	}
 
-	// Improved: Use fractal noise for more interesting terrain
+	// Extreme terrain generation with multiple octaves for dramatic landscapes
 	baseHeight := settings.SurfaceBaseHeight
 	fx := float64(x)
-	// Combine several octaves of noise for hills, valleys, and detail
-	hill := terrainNoise.Noise1D(fx*0.01) * float64(settings.SurfaceHeightVar)
-	valley := terrainNoise.Noise1D(fx*0.03) * (float64(settings.SurfaceHeightVar) * 0.5)
-	detail := terrainNoise.Noise1D(fx*0.09) * (float64(settings.SurfaceHeightVar) * 0.25)
 
-	height := baseHeight + int(hill+valley+detail)
+	// Large scale mountains and valleys - very dramatic
+	mountains := terrainNoise.Noise1D(fx*0.005) * float64(settings.SurfaceHeightVar) * 2.0
 
-	if height < 3 {
-		height = 3
+	// Medium scale hills - adds complexity
+	hills := terrainNoise.Noise1D(fx*0.015) * float64(settings.SurfaceHeightVar) * 1.2
+
+	// Rolling terrain for natural variation
+	rolling := terrainNoise.Noise1D(fx*0.04) * float64(settings.SurfaceHeightVar) * 0.8
+
+	// Fine detail for realistic texture
+	detail := terrainNoise.Noise1D(fx*0.12) * float64(settings.SurfaceHeightVar) * 0.3
+
+	// Sharp ridges for extreme terrain features
+	ridges := terrainNoise.RidgedNoise1D(fx*0.02, 3, 0.02, 1.0) * float64(settings.SurfaceHeightVar) * 1.5
+
+	// Combine all layers for extreme terrain
+	height := baseHeight + int(mountains+hills+rolling+detail+ridges)
+
+	// Allow more extreme heights
+	if height < 5 {
+		height = 5
 	}
-	if height > settings.ChunkHeight-2 {
-		height = settings.ChunkHeight - 2
+	if height > (settings.WorldChunksY*settings.ChunkHeight)-5 {
+		height = (settings.WorldChunksY * settings.ChunkHeight) - 5
 	}
 
 	terrainHeights[x] = height

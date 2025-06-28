@@ -102,6 +102,7 @@ func getSurfaceBlockByID(biome int) block.BlockType {
 
 // GenerateChunk creates a chunk with Terraria-like terrain layers
 func GenerateChunk(chunkX, chunkY int) block.Chunk {
+	fmt.Printf("CHUNK_GEN: Generating chunk at (%d, %d)\n", chunkX, chunkY)
 	var chunk block.Chunk
 
 	chunkStartY := chunkY * settings.ChunkHeight
@@ -476,23 +477,38 @@ func GetBiomeAt(noise *noise.PerlinNoise, x float64) int {
 func GetBiomeTerrainHeight(noise *noise.PerlinNoise, x float64, biome int) float64 {
 	base := noise.Noise1D(x * 0.01)
 	switch biome {
-	case 3: // Mountain
-		return base*0.3 + noise.Noise1D(x*0.02)*0.7
-	case 0: // Plains
-		return base*0.2 + noise.Noise1D(x*0.03)*0.8
-	case 2: // Desert
-		return base*0.4 + noise.Noise1D(x*0.04)
-	case 1: // Forest
-		return base + noise.Noise1D(x*0.015)
-	case 4: // Swamp
-		return base*0.1 + noise.Noise1D(x*0.02)*0.2
-	case 5: // Tundra
-		return base*0.2 + noise.Noise1D(x*0.025)*0.5
-	case 6: // Jungle
-		return base*0.3 + noise.Noise1D(x*0.018)*0.7
-	case 7: // Ocean
-		return base*0.1 - 0.5
+	case 3: // Mountain - Extremely tall and dramatic
+		mountains := noise.Noise1D(x*0.008) * 2.5
+		peaks := noise.RidgedNoise1D(x*0.02, 3, 0.02, 1.0) * 1.8
+		return base*0.8 + mountains + peaks
+	case 0: // Plains - Rolling hills with dramatic variations
+		hills := noise.Noise1D(x*0.015) * 1.5
+		rolling := noise.Noise1D(x*0.04) * 0.8
+		return base*0.6 + hills + rolling
+	case 2: // Desert - Sharp dunes and mesas
+		dunes := noise.Noise1D(x*0.025) * 1.2
+		mesas := noise.RidgedNoise1D(x*0.035, 2, 0.03, 0.8) * 1.0
+		return base*0.7 + dunes + mesas
+	case 1: // Forest - Varied mountainous forest terrain
+		forest := noise.Noise1D(x*0.012) * 1.8
+		ridges := noise.Noise1D(x*0.03) * 0.9
+		return base*0.5 + forest + ridges
+	case 4: // Swamp - Low valleys with occasional hills
+		valleys := noise.Noise1D(x*0.02) * 0.4
+		lowlands := noise.Noise1D(x*0.06) * 0.3
+		return base*0.2 + valleys + lowlands - 0.3
+	case 5: // Tundra - Jagged frozen peaks
+		frozen := noise.Noise1D(x*0.018) * 1.6
+		jagged := noise.RidgedNoise1D(x*0.04, 2, 0.04, 0.7) * 1.2
+		return base*0.4 + frozen + jagged
+	case 6: // Jungle - Dense mountainous jungle terrain
+		jungle := noise.Noise1D(x*0.014) * 2.0
+		canopy := noise.Noise1D(x*0.035) * 1.1
+		return base*0.6 + jungle + canopy
+	case 7: // Ocean - Deep underwater terrain
+		depths := noise.Noise1D(x*0.025) * 0.6
+		return base*0.3 + depths - 1.2
 	default:
-		return base
+		return base * 1.5
 	}
 }

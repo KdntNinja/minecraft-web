@@ -1,6 +1,8 @@
 package world
 
 import (
+	"fmt"
+
 	"github.com/KdntNinja/webcraft/internal/core/engine/block"
 	"github.com/KdntNinja/webcraft/internal/core/settings"
 	"github.com/KdntNinja/webcraft/internal/generation/terrain"
@@ -8,6 +10,7 @@ import (
 
 // GenerateChunk generates a chunk at the specified coordinates using the terrain generation system
 func GenerateChunk(chunkX, chunkY int) block.Chunk {
+	fmt.Printf("WORLD_CHUNK_GEN: Requesting chunk generation for (%d, %d)\n", chunkX, chunkY)
 	return terrain.GenerateChunk(chunkX, chunkY)
 }
 

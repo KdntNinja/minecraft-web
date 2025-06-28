@@ -46,7 +46,7 @@ func NewGame() *Game {
 	g.playerImage.Fill(color.RGBA{255, 255, 0, 255}) // Yellow
 
 	// Create a simple world with fixed size, passing the seed
-	g.World = world.NewWorld(0, seed)
+	g.World = world.NewWorld(seed)
 
 	// Initialize camera position to follow the player's spawn location with tighter centering
 	if len(g.World.Entities) > 0 {
