@@ -21,7 +21,6 @@ This directory contains the core engine and gameplay components for Webcraft, or
 - `systems/`
   - `rendering/`
     - `render/`  — Rendering system, camera, color utilities
-- `pkg/`         — (Reserved for reusable packages)
 - `wasm/`        — WebAssembly entrypoint, HTML, and scripts
 
 ## Architecture Notes
