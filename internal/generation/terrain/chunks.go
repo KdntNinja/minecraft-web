@@ -151,15 +151,9 @@ func GenerateChunk(chunkX, chunkY int) block.Chunk {
 				// Surface layer - biome-specific blocks
 				chunk[y][x] = getTerrariaStyleSurfaceBlock(biome, terrainNoise, globalX)
 
-				// Add trees based on biome
+				// Add trees based on biome (improved tree generation)
 				if shouldPlaceTree(globalX, biome) {
-					// Add tree trunk above surface (if within chunk bounds)
-					if y > 0 {
-						chunk[y-1][x] = block.Wood
-					}
-					if y > 1 {
-						chunk[y-2][x] = block.Leaves
-					}
+					generateTree(&chunk, x, y, biome, terrainNoise, globalX)
 				}
 			} else if depthFromSurface <= 3 {
 				// Shallow soil layer (dirt/sand based on biome)
@@ -180,7 +174,7 @@ func GenerateChunk(chunkX, chunkY int) block.Chunk {
 					chunk[y][x] = block.Air
 				} else {
 					// Check for shallow ores
-					if ore := generateTerrariaStyleOre(globalX, globalY, depthFromSurface, biome, terrainNoise); ore != block.Air {
+					if ore := generateOre(globalX, globalY, depthFromSurface, biome, terrainNoise); ore != block.Air {
 						chunk[y][x] = ore
 					} else {
 						chunk[y][x] = block.Stone
@@ -192,7 +186,7 @@ func GenerateChunk(chunkX, chunkY int) block.Chunk {
 					chunk[y][x] = block.Air
 				} else {
 					// Stone with good ore distribution
-					if ore := generateTerrariaStyleOre(globalX, globalY, depthFromSurface, biome, terrainNoise); ore != block.Air {
+					if ore := generateOre(globalX, globalY, depthFromSurface, biome, terrainNoise); ore != block.Air {
 						chunk[y][x] = ore
 					} else {
 						chunk[y][x] = block.Stone
@@ -204,7 +198,7 @@ func GenerateChunk(chunkX, chunkY int) block.Chunk {
 					chunk[y][x] = block.Air
 				} else {
 					// Check for deep ores first
-					if ore := generateTerrariaStyleOre(globalX, globalY, depthFromSurface, biome, terrainNoise); ore != block.Air {
+					if ore := generateOre(globalX, globalY, depthFromSurface, biome, terrainNoise); ore != block.Air {
 						chunk[y][x] = ore
 					} else {
 						// Mostly stone with some variety
@@ -416,54 +410,6 @@ func getUndergroundBlock(depthFromSurface int, biome noise.BiomeData, terrainNoi
 	}
 }
 
-// Tree placement with biome-specific logic
-func shouldPlaceTree(globalX int, biome noise.BiomeData) bool {
-	treeChance := settings.TreeChance * 0.33 // Base tree chance (reduced from default)
-
-	switch biome.Type {
-	case 1: // ForestBiome
-		treeChance = settings.TreeChance * 1.67 // 25% (0.15 * 1.67)
-	case 6: // JungleBiome
-		treeChance = settings.TreeChance * 2.0 // 30% (0.15 * 2.0)
-	case 0: // PlainseBiome
-		treeChance = settings.TreeChance * 0.53 // 8% (0.15 * 0.53)
-	case 4: // SwampBiome
-		treeChance = settings.TreeChance // Use default 15%
-	case 2, 5: // DesertBiome, TundraBiome
-		treeChance = settings.TreeChance * 0.067 // 1% (0.15 * 0.067)
-	case 3: // MountainBiome
-		if biome.Temperature > -0.3 {
-			treeChance = settings.TreeChance * 0.8 // 12% (0.15 * 0.8)
-		} else {
-			treeChance = settings.TreeChance * 0.133 // 2% (0.15 * 0.133)
-		}
-	}
-
-	// Use position-based deterministic randomness
-	hash := float64(((globalX*73856093)^(globalX*19349663))%1000000) / 1000000.0
-	return hash < treeChance
-}
-
-func shouldPlaceTreeByID(globalX int, biomeID int) bool {
-	treeChance := settings.TreeChance * 0.33 // Base tree chance
-	switch biomeID {
-	case 1:
-		treeChance = settings.TreeChance * 1.67 // 25%
-	case 6:
-		treeChance = settings.TreeChance * 2.0 // 30%
-	case 0:
-		treeChance = settings.TreeChance * 0.53 // 8%
-	case 4:
-		treeChance = settings.TreeChance // 15%
-	case 2, 5:
-		treeChance = settings.TreeChance * 0.067 // 1%
-	case 3:
-		treeChance = settings.TreeChance * 0.47 // 7%
-	}
-	hash := float64(((globalX*73856093)^(globalX*19349663))%1000000) / 1000000.0
-	return hash < treeChance
-}
-
 // Surface block selection based on biome
 func getSurfaceBlock(biome noise.BiomeData) block.BlockType {
 	switch biome.Type {
@@ -664,65 +610,4 @@ func shouldGenerateTerrariaStyleCave(globalX, globalY, depthFromSurface int, ter
 	threshold := 0.45 + (difficulty-0.5)*0.3
 
 	return totalCaveNoise > threshold
-}
-
-// generateTerrariaStyleOre creates Terraria-like ore distribution
-func generateTerrariaStyleOre(globalX, globalY, depthFromSurface int, biome noise.BiomeData, terrainNoise *noise.PerlinNoise) block.BlockType {
-	x, y := float64(globalX), float64(globalY)
-
-	// Biome-based ore probability modifiers
-	biomeOreMultiplier := 1.0
-	switch biome.Type {
-	case 3: // MountainBiome - richer in ores
-		biomeOreMultiplier = 1.5
-	case 2: // DesertBiome - fewer ores
-		biomeOreMultiplier = 0.7
-	case 4: // SwampBiome - limited ores
-		biomeOreMultiplier = 0.8
-	case 6: // JungleBiome - different ore distribution
-		biomeOreMultiplier = 1.2
-	}
-
-	// Terraria-like depth-based ore layers
-	if depthFromSurface >= 8 && depthFromSurface < 25 {
-		// Shallow layer: Copper and some Iron
-		copperNoise := terrainNoise.FractalNoise2D(x*0.09, y*0.08, 3, 0.12, 1.0, 0.6) * biomeOreMultiplier
-		ironNoise := terrainNoise.FractalNoise2D(x*0.07+100, y*0.07, 2, 0.08, 0.8, 0.5) * biomeOreMultiplier
-
-		if copperNoise > 0.78 {
-			return block.CopperOre
-		}
-		if ironNoise > 0.85 && depthFromSurface > 15 {
-			return block.IronOre
-		}
-	} else if depthFromSurface >= 25 && depthFromSurface < 60 {
-		// Medium depth: Iron and Gold
-		ironNoise := terrainNoise.FractalNoise2D(x*0.06+200, y*0.06, 3, 0.07, 1.0, 0.5) * biomeOreMultiplier
-		goldNoise := terrainNoise.FractalNoise2D(x*0.05+300, y*0.05, 4, 0.05, 1.2, 0.4) * biomeOreMultiplier
-
-		if goldNoise > 0.90 {
-			return block.GoldOre
-		}
-		if ironNoise > 0.80 {
-			return block.IronOre
-		}
-		// Still some copper at this depth but rarer
-		copperNoise := terrainNoise.FractalNoise2D(x*0.08+400, y*0.08, 2, 0.1, 0.6, 0.6) * biomeOreMultiplier
-		if copperNoise > 0.88 {
-			return block.CopperOre
-		}
-	} else if depthFromSurface >= 60 {
-		// Deep layer: Mostly Gold with rare other ores
-		goldNoise := terrainNoise.FractalNoise2D(x*0.04+500, y*0.04, 4, 0.04, 1.3, 0.3) * biomeOreMultiplier
-		deepIronNoise := terrainNoise.FractalNoise2D(x*0.06+600, y*0.06, 3, 0.06, 1.0, 0.4) * biomeOreMultiplier
-
-		if goldNoise > 0.87 {
-			return block.GoldOre
-		}
-		if deepIronNoise > 0.85 {
-			return block.IronOre
-		}
-	}
-
-	return block.Air // No ore
 }
