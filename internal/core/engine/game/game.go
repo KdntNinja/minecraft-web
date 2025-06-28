@@ -4,7 +4,7 @@ import (
 	"image/color"
 	"time"
 
-	ebiten "github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2"
 
 	"github.com/KdntNinja/webcraft/internal/core/settings"
 	"github.com/KdntNinja/webcraft/internal/gameplay/player"

@@ -20,7 +20,7 @@ const (
 	BiomeCount         = 5    // Number of biome types
 	BiomeBlendDistance = 16   // Biome blend width (blocks)
 	SurfaceBaseHeight  = 64   // Average surface Y
-	SurfaceHeightVar   = 16   // Surface height variation
+	SurfaceHeightVar   = 40   // Surface height variation - increased for extreme terrain
 	TreeChance         = 0.15 // Tree spawn chance
 )
 
