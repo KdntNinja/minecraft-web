@@ -8,7 +8,7 @@ const (
 	PerlinPersistence = 0.5 // Perlin octave contribution
 
 	ChunkWidth   = 16  // Chunk width (blocks)
-	ChunkHeight  = 128 // Chunk height (blocks)
+	ChunkHeight  = 256 // Chunk height (blocks)
 	WorldChunksY = 20  // Number of chunks vertically in the world
 	WorldChunksX = 25  // Number of chunks horizontally in the world
 	TileSize     = 42  // Increased from 30 for more zoomed-in view
