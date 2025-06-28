@@ -14,14 +14,18 @@ func GenerateVisibleTerrain(chunkX, chunkY int) block.Chunk {
 	// Simple visible terrain generation for immediate feedback
 	terrainNoise := noise.NewSimplexNoise(42)
 
+	// Calculate the global Y start for this chunk
+	chunkStartY := chunkY * block.ChunkHeight
+
 	for y := 0; y < block.ChunkHeight; y++ {
 		for x := 0; x < block.ChunkWidth; x++ {
 			globalX := chunkX*block.ChunkWidth + x
-			globalY := chunkY*block.ChunkHeight + y
+			globalY := chunkStartY + y
 
 			// Create a simple surface at different heights based on noise
 			surfaceNoise := terrainNoise.Noise1D(float64(globalX) * 0.02)
-			surfaceHeight := 20 + int(surfaceNoise*8) // Surface between y=12 and y=28
+			// Surface height in absolute world coordinates
+			surfaceHeight := 50 + int(surfaceNoise*8) // Surface between y=42 and y=58
 
 			if globalY == surfaceHeight {
 				// Surface
@@ -66,8 +70,17 @@ func GenerateChunk(chunkX, chunkY int) block.Chunk {
 		return cached
 	}
 
-	// Use simple visible terrain generation for now to ensure we see something
-	if chunkY >= -1 && chunkY <= 3 {
+	// Calculate the global Y range for this chunk
+	chunkStartY := chunkY * block.ChunkHeight
+	chunkEndY := chunkStartY + block.ChunkHeight
+
+	// Determine surface height range to check if this chunk might contain surface
+	terrainNoise := noise.NewSimplexNoise(42)
+	minSurface, maxSurface := getSurfaceHeightRange(chunkX, terrainNoise)
+
+	// If this chunk is likely to contain surface terrain, use visible generation
+	if (chunkStartY <= maxSurface && chunkEndY >= minSurface) ||
+		(chunkStartY <= 100 && chunkEndY >= 20) { // Also include chunks around typical surface heights
 		chunk := GenerateVisibleTerrain(chunkX, chunkY)
 		cacheChunk(chunkX, chunkY, chunk)
 		return chunk
@@ -75,11 +88,8 @@ func GenerateChunk(chunkX, chunkY int) block.Chunk {
 
 	var chunk block.Chunk
 
-	// Initialize noise generators with seed variation
-	terrainNoise := noise.NewSimplexNoise(42)
-
 	// Calculate chunk boundaries in world coordinates
-	chunkStartY := chunkY * block.ChunkHeight
+	chunkStartY = chunkY * block.ChunkHeight
 
 	// Generate each block in the chunk
 	for y := 0; y < block.ChunkHeight; y++ {
@@ -93,9 +103,9 @@ func GenerateChunk(chunkX, chunkY int) block.Chunk {
 			// Get terrain height using biome-aware generation
 			terrainHeight := terrainNoise.GetBiomeTerrainHeight(float64(globalX), biome)
 
-			// Scale height and make terrain reasonable - much lower base height
-			baseHeight := 32.0                       // Much lower base sea level for visibility
-			heightVariation := terrainHeight * 20.0  // Reduced terrain variation
+			// Scale height and make terrain reasonable - adjust base height for proper surface placement
+			baseHeight := 50.0                      // Surface around chunk 0 at position 50
+			heightVariation := terrainHeight * 20.0 // Terrain variation
 			surfaceHeight := int(baseHeight + heightVariation)
 
 			// Convert global Y to relative position from surface
@@ -139,6 +149,32 @@ func GenerateChunk(chunkX, chunkY int) block.Chunk {
 	// Cache the generated chunk
 	cacheChunk(chunkX, chunkY, chunk)
 	return chunk
+}
+
+// getSurfaceHeightRange calculates the min and max surface heights for a chunk column
+func getSurfaceHeightRange(chunkX int, terrainNoise *noise.SimplexNoise) (int, int) {
+	minHeight := 1000
+	maxHeight := -1000
+
+	// Sample a few points across the chunk width to get height range
+	for x := 0; x < block.ChunkWidth; x++ {
+		globalX := chunkX*block.ChunkWidth + x
+		biome := terrainNoise.GetBiomeAt(float64(globalX))
+		terrainHeight := terrainNoise.GetBiomeTerrainHeight(float64(globalX), biome)
+
+		baseHeight := 50.0
+		heightVariation := terrainHeight * 20.0
+		surfaceHeight := int(baseHeight + heightVariation)
+
+		if surfaceHeight < minHeight {
+			minHeight = surfaceHeight
+		}
+		if surfaceHeight > maxHeight {
+			maxHeight = surfaceHeight
+		}
+	}
+
+	return minHeight, maxHeight
 }
 
 // Enhanced cave generation with realistic patterns
@@ -384,9 +420,9 @@ func (pcl *ProceduralChunkLoader) UpdateAroundPlayer(playerX, playerY float64) {
 	pcl.lastPlayerY = playerChunkY
 
 	// Calculate visible area (screen size in chunks)
-	screenWidthInChunks := (block.TilesX * block.TileSize) / (block.ChunkWidth * block.TileSize) + 2  // +2 for buffer
-	screenHeightInChunks := 3 // Only load a few chunks vertically for performance
-	
+	screenWidthInChunks := (block.TilesX*block.TileSize)/(block.ChunkWidth*block.TileSize) + 2 // +2 for buffer
+	screenHeightInChunks := 3                                                                  // Only load a few chunks vertically for performance
+
 	// Load chunks in visible area around player
 	newChunks := make(map[string]block.Chunk)
 

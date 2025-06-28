@@ -38,3 +38,34 @@ func (w *World) LoadChunksAroundPlayer(playerX, playerY float64, radius int) {
 		}
 	}
 }
+
+// FindSurfaceHeight finds the Y coordinate of the surface at the given X coordinate
+func FindSurfaceHeight(worldX int, blocks [][]block.Chunk) int {
+	if len(blocks) == 0 || len(blocks[0]) == 0 {
+		return 50 // Default surface height
+	}
+
+	chunkX := worldX / block.ChunkWidth
+	inChunkX := worldX % block.ChunkWidth
+
+	// Search from top to bottom to find the first solid block
+	for chunkY := 0; chunkY < len(blocks); chunkY++ {
+		if chunkX >= 0 && chunkX < len(blocks[chunkY]) {
+			chunk := blocks[chunkY][chunkX]
+
+			for y := 0; y < block.ChunkHeight; y++ {
+				globalY := chunkY*block.ChunkHeight + y
+
+				if inChunkX >= 0 && inChunkX < block.ChunkWidth {
+					blockType := chunk[y][inChunkX]
+					if blockType != block.Air {
+						// Found first solid block, this is the surface
+						return globalY
+					}
+				}
+			}
+		}
+	}
+
+	return 50 // Default if no surface found
+}

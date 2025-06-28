@@ -35,50 +35,15 @@ func NewWorld(numChunksY int, centerChunkX int) *World {
 	centerBlockX := centerChunkCol*block.ChunkWidth + block.ChunkWidth/2 // Center of center chunk
 	px := float64(centerBlockX * block.TileSize)
 
-	// Convert to grid coordinates to find spawn position
-	grid := w.ToIntGrid()
+	// Find the surface height at the center position
+	surfaceY := FindSurfaceHeight(centerBlockX, blocks)
 
-	// Find the surface by searching from top down to find first solid block (surface)
-	spawnY := 0
-	found := false
+	// Spawn player 2 blocks above the surface for safety
+	spawnY := surfaceY - 2
 
-	// Search from top of world down to find the first solid block (surface)
-	for y := 0; y < len(grid); y++ {
-		if centerBlockX < len(grid[y]) {
-			if entity.IsSolid(grid, centerBlockX, y) {
-				// Found the first solid block from top, this is the surface
-				// Spawn player directly above it with enough clearance
-				spawnY = y - 2 // Two blocks above the surface block for player height
-				found = true
-				break
-			}
-		}
-	}
-
-	// If no surface found, spawn at a reasonable default height near top
-	if !found {
-		spawnY = 10 // Spawn near the top of the world
-	}
-
-	// Ensure spawn position is valid (not negative and has clearance)
+	// Ensure spawn position is reasonable
 	if spawnY < 0 {
 		spawnY = 0
-	}
-
-	// Verify there's clear air space for the player (player is 2 blocks tall)
-	// Move spawn position up if needed to ensure clear space
-	for spawnY >= 0 && centerBlockX < len(grid[0]) {
-		// Check if current position and position above are clear
-		if spawnY < len(grid) && spawnY+1 < len(grid) &&
-			!entity.IsSolid(grid, centerBlockX, spawnY) &&
-			!entity.IsSolid(grid, centerBlockX, spawnY+1) {
-			break // Found clear air space for player
-		}
-		spawnY-- // Move up one block
-		if spawnY < 0 {
-			spawnY = 0 // Don't go below world
-			break
-		}
 	}
 
 	py := float64(spawnY * block.TileSize)

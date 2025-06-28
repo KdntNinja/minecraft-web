@@ -1,15 +1,17 @@
 # ---- Build Stage ----
 FROM golang:1.24.3-alpine AS builder
 WORKDIR /app
+
+# Copy source code
 COPY . .
 
-# Get the wasm_exec.js file from the Go standard library
-RUN wasm/scripts/find_wasm_exec.sh
+# Make script executable and run it to get wasm_exec.js
+RUN chmod +x wasm/scripts/find_wasm_exec.sh && \
+    wasm/scripts/find_wasm_exec.sh
 
 # Update go.mod and build the WASM binary
 RUN go mod tidy && \
-    GOOS=js GOARCH=wasm EBITEN_GRAPHICS_LIBRARY=opengl go build -o wasm/main.wasm github.com/KdntNinja/webcraft && \
-    cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" wasm/
+    GOOS=js GOARCH=wasm EBITEN_GRAPHICS_LIBRARY=opengl go build -o wasm/main.wasm .
 
 # ---- Production Stage ----
 FROM golang:1.24.3-alpine
