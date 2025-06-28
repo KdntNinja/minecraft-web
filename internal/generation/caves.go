@@ -2,17 +2,25 @@ package generation
 
 // IsCave determines if a position should be a cave using 3D-like noise
 func IsCave(worldX, worldY int) bool {
-	// Only generate caves underground (below surface + some buffer)
 	surfaceHeight := GetHeightAt(worldX)
-	if worldY <= surfaceHeight+8 {
-		return false
+
+	// Allow caves to generate closer to surface, including surface entrances
+	if worldY < surfaceHeight-2 {
+		return false // Above ground
 	}
 
 	caveNoise := GetCaveNoise()
-
 	x := float64(worldX)
 	y := float64(worldY)
 	depth := worldY - surfaceHeight
+
+	// Surface cave entrances (more common and visible)
+	if depth >= -2 && depth <= 8 {
+		entranceNoise := caveNoise.Noise2D(x/35.0+8000, y/35.0+8000)
+		if entranceNoise > 0.65 { // Reduced from 0.75 for more entrances
+			return true // Surface cave entrance
+		}
+	}
 
 	// Multiple cave types for variety
 
@@ -35,39 +43,51 @@ func IsCave(worldX, worldY int) bool {
 	if depth > 150 {
 		// Very deep - large caverns and complex systems
 		largeCaverns := largeCaveNoise*0.5 + horizontalTunnels*0.3 + verticalShafts*0.2
-		if largeCaverns > 0.35 {
+		if largeCaverns > 0.25 {
 			return true
 		}
 
 		// Additional tunnel networks deep underground
 		deepTunnels := smallCaves*0.6 + airPockets*0.4
-		return deepTunnels > 0.55
+		return deepTunnels > 0.45
 
 	} else if depth > 100 {
 		// Deep caves - mix of large and medium caves
 		deepCaves := largeCaveNoise*0.4 + horizontalTunnels*0.4 + smallCaves*0.2
-		if deepCaves > 0.4 {
+		if deepCaves > 0.3 {
 			return true
 		}
 
 		// Vertical connections between levels
-		return verticalShafts > 0.65
+		return verticalShafts > 0.55
 
 	} else if depth > 50 {
 		// Medium depth - primarily horizontal tunnel systems
 		mediumCaves := horizontalTunnels*0.5 + smallCaves*0.3 + airPockets*0.2
-		if mediumCaves > 0.5 {
+		if mediumCaves > 0.4 {
 			return true
 		}
 
 		// Some vertical shafts connecting to surface
-		return verticalShafts > 0.7
+		return verticalShafts > 0.6
 
-	} else {
-		// Shallow caves - small pockets and rare tunnels
-		shallowCaves := smallCaves*0.6 + airPockets*0.4
-		return shallowCaves > 0.65
+	} else if depth > 20 { // Reduced from 50 for more medium-depth caves
+		// Medium-shallow caves - tunnel systems closer to surface
+		mediumShallowCaves := horizontalTunnels*0.4 + smallCaves*0.4 + airPockets*0.2
+		if mediumShallowCaves > 0.35 { // More generous threshold
+			return true
+		}
+
+		// More vertical connections to surface
+		return verticalShafts > 0.55
+
+	} else if depth > 5 { // Reduced from 10 for caves very close to surface
+		// Shallow caves - small pockets and tunnels near surface
+		shallowCaves := smallCaves*0.5 + airPockets*0.3 + horizontalTunnels*0.2
+		return shallowCaves > 0.45 // Reduced from 0.55 for more shallow caves
 	}
+
+	return false
 }
 
 // IsLargeCavern determines if a position should be part of a large underground cavern
@@ -75,8 +95,8 @@ func IsLargeCavern(worldX, worldY int) bool {
 	surfaceHeight := GetHeightAt(worldX)
 	depth := worldY - surfaceHeight
 
-	// Only large caverns at significant depth
-	if depth < 80 {
+	// Allow large caverns closer to surface
+	if depth < 40 { // Reduced from 80
 		return false
 	}
 
@@ -93,7 +113,7 @@ func IsLargeCavern(worldX, worldY int) bool {
 	combinedNoise := cavernNoise*0.7 + shapeVariation*0.3
 
 	// Threshold varies by depth - deeper = more likely to have large caverns
-	threshold := 0.6 - float64(depth-80)*0.001 // Gets easier deeper down
+	threshold := 0.6 - float64(depth-40)*0.001 // Adjusted for new minimum depth
 	if threshold < 0.3 {
 		threshold = 0.3
 	}
@@ -126,4 +146,30 @@ func GetCaveWaterLevel(worldX, worldY int) bool {
 	}
 
 	return waterNoise > threshold
+}
+
+// IsSurfaceCaveEntrance specifically creates visible cave entrances at the surface
+func IsSurfaceCaveEntrance(worldX, worldY int) bool {
+	surfaceHeight := GetHeightAt(worldX)
+
+	// Only check positions at or just below surface
+	if worldY < surfaceHeight || worldY > surfaceHeight+3 {
+		return false
+	}
+
+	caveNoise := GetCaveNoise()
+	x := float64(worldX)
+
+	// Use a different noise pattern for entrance placement
+	entranceNoise := caveNoise.Noise2D(x/40.0+9000, 0)
+
+	// Make entrances more likely in hilly areas
+	terrainNoise := GetTerrainNoise()
+	hilliness := terrainNoise.Noise2D(x/30.0, 0)
+
+	// Combine entrance noise with terrain variation
+	combinedNoise := entranceNoise*0.7 + hilliness*0.3
+
+	// More surface entrances
+	return combinedNoise > 0.6 // Reduced from 0.7
 }

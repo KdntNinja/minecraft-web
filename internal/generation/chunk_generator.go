@@ -53,11 +53,21 @@ func GenerateChunk(chunkX, chunkY int) block.Chunk {
 				// Above surface - air (already initialized)
 				continue
 			} else if worldY == surfaceHeight {
-				// Surface layer - always grass on top of dirt/earth
-				blockType = GetSurfaceBlockType(worldX)
+				// Check for surface cave entrances first
+				if IsSurfaceCaveEntrance(worldX, worldY) {
+					blockType = block.Air
+				} else {
+					// Surface layer - always grass on top of dirt/earth
+					blockType = GetSurfaceBlockType(worldX)
+				}
 			} else if worldY <= surfaceHeight+4 {
-				// Shallow underground - determine dirt/clay layers
-				blockType = GetShallowUndergroundBlock(worldX, worldY)
+				// Check for cave entrances in shallow underground too
+				if IsSurfaceCaveEntrance(worldX, worldY) {
+					blockType = block.Air
+				} else {
+					// Shallow underground - determine dirt/clay layers
+					blockType = GetShallowUndergroundBlock(worldX, worldY)
+				}
 			} else {
 				// Underground - check for caves first
 				if IsCave(worldX, worldY) {
