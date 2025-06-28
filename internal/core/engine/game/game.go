@@ -8,6 +8,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 
+	"github.com/KdntNinja/webcraft/internal/core/progress"
 	"github.com/KdntNinja/webcraft/internal/core/settings"
 	"github.com/KdntNinja/webcraft/internal/gameplay/player"
 	"github.com/KdntNinja/webcraft/internal/gameplay/world"
@@ -34,7 +35,20 @@ type Game struct {
 }
 
 func NewGame() *Game {
+	// Initialize dynamic progress system
+	steps := []progress.ProgressStep{
+		{Name: "Initializing", Weight: 1.0, SubSteps: 4, Description: "Starting game initialization..."},
+		{Name: "World Setup", Weight: 1.0, SubSteps: 3, Description: "Setting up world structure..."},
+		{Name: "Generating Terrain", Weight: 8.0, SubSteps: 1, Description: "Generating world chunks..."}, // This will be updated dynamically
+		{Name: "Spawning Player", Weight: 1.0, SubSteps: 3, Description: "Creating player entity..."},
+		{Name: "Finalizing", Weight: 1.0, SubSteps: 1, Description: "Finishing initialization..."},
+	}
+	progress.InitializeProgress(steps)
+
 	seed := time.Now().UnixNano() % 1000000
+	progress.UpdateCurrentStepProgress(1, "Generated new world seed")
+	time.Sleep(150 * time.Millisecond) // Small delay to make progress visible
+
 	g := &Game{
 		LastScreenW:   800, // Default screen width
 		LastScreenH:   600, // Default screen height
@@ -45,15 +59,25 @@ func NewGame() *Game {
 
 	// Hide the cursor for better gameplay experience
 	ebiten.SetCursorMode(ebiten.CursorModeHidden)
+	progress.UpdateCurrentStepProgress(2, "Set up game configuration")
+	time.Sleep(150 * time.Millisecond)
 
 	// Always reset world generation with the new seed
 	generation.ResetWorldGeneration(seed)
+	progress.UpdateCurrentStepProgress(3, "Reset generation systems")
+	time.Sleep(150 * time.Millisecond)
 
 	// Pre-allocate player image to avoid recreating it every frame
 	g.playerImage = ebiten.NewImage(settings.PlayerWidth, settings.PlayerHeight)
 	g.playerImage.Fill(color.RGBA{255, 255, 0, 255}) // Yellow
+	progress.UpdateCurrentStepProgress(4, "Created player graphics")
+	time.Sleep(150 * time.Millisecond)
+
+	// Complete initialization step
+	progress.CompleteCurrentStep()
 
 	// Create a simple world with fixed size, passing the seed
+	// This will use the new progress system for world generation
 	g.World = world.NewWorld(seed)
 
 	// Initialize camera position to follow the player's spawn location with tighter centering

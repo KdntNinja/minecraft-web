@@ -2,9 +2,11 @@ package world
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/KdntNinja/webcraft/internal/core/engine/block"
 	"github.com/KdntNinja/webcraft/internal/core/physics/entity"
+	"github.com/KdntNinja/webcraft/internal/core/progress"
 	"github.com/KdntNinja/webcraft/internal/core/settings"
 	"github.com/KdntNinja/webcraft/internal/gameplay/player"
 	"github.com/KdntNinja/webcraft/internal/generation"
@@ -28,12 +30,25 @@ type World struct {
 
 // NewWorld constructs a new World instance with a fixed set of pre-generated chunks
 func NewWorld(seed int64) *World {
+	// Start world setup step
+	progress.UpdateCurrentStepProgress(1, "Starting world generation...")
+	time.Sleep(100 * time.Millisecond) // Small delay to make progress visible
+
 	generation.ResetWorldGeneration(seed)
+	progress.UpdateCurrentStepProgress(2, "Reset world generation")
+	time.Sleep(100 * time.Millisecond)
+
 	w := &World{
 		Chunks:    make(map[ChunkCoord]block.Chunk),
 		Entities:  entity.Entities{},
 		gridDirty: true, // Grid needs initial generation
 	}
+	progress.UpdateCurrentStepProgress(3, "Created world structure")
+	time.Sleep(100 * time.Millisecond)
+
+	// Complete world setup step
+	progress.CompleteCurrentStep()
+
 	// Generate a large fixed world area - no dynamic loading
 	worldWidth := settings.WorldChunksX  // Total chunks horizontally
 	worldHeight := settings.WorldChunksY // Total chunks vertically
@@ -57,14 +72,33 @@ func NewWorld(seed int64) *World {
 
 	fmt.Printf("DEBUG: Generating chunks from X=%d to X=%d (total: %d chunks)\n", startX, endX, endX-startX+1)
 
+	totalChunks := (endX - startX + 1) * worldHeight
+	generatedChunks := 0
+
+	// Set the substeps for terrain generation based on actual chunk count
+	progress.SetCurrentStepSubSteps(totalChunks, fmt.Sprintf("Generating %d chunks...", totalChunks))
+
 	for cy := 0; cy < worldHeight; cy++ {
 		for cx := startX; cx <= endX; cx++ {
 			coord := ChunkCoord{X: cx, Y: cy}
 			w.Chunks[coord] = GenerateChunk(coord.X, coord.Y)
+			generatedChunks++
+
+			// Update progress for each chunk with a small delay to make it visible
+			progress.UpdateCurrentStepProgress(generatedChunks,
+				fmt.Sprintf("Generated %d/%d chunks", generatedChunks, totalChunks))
+
+			// Add a small delay every few chunks to make progress updates visible
+			if generatedChunks%5 == 0 {
+				time.Sleep(50 * time.Millisecond)
+			}
 		}
 	}
 
 	fmt.Printf("DEBUG: Generated %d chunks total\n", len(w.Chunks))
+
+	// Complete terrain generation step
+	progress.CompleteCurrentStep()
 
 	// Print first few and last few chunk coordinates for verification
 	chunkCount := 0
@@ -79,6 +113,8 @@ func NewWorld(seed int64) *World {
 
 	// Add player entity at pixel (1, 0) in world coordinates
 	fmt.Printf("DEBUG: Player spawning at pixel (1, 0)\n")
+	progress.UpdateCurrentStepProgress(1, "Finding spawn location...")
+	time.Sleep(200 * time.Millisecond)
 
 	// Spawn player at pixel (1, 0), which is still in block (0, 0)
 	spawnBlockX := 0
@@ -87,6 +123,8 @@ func NewWorld(seed int64) *World {
 	// Find the surface height at block X=0 to determine proper Y spawn
 	surfaceY := FindSurfaceHeight(spawnBlockX, w)
 	fmt.Printf("DEBUG: Surface height at X=%d is Y=%d\n", spawnBlockX, surfaceY)
+	progress.UpdateCurrentStepProgress(2, fmt.Sprintf("Surface height: %d", surfaceY))
+	time.Sleep(200 * time.Millisecond)
 
 	// Spawn player 3 blocks above surface for safety
 	spawnBlockY = surfaceY - 3
@@ -106,6 +144,17 @@ func NewWorld(seed int64) *World {
 	fmt.Printf("DEBUG: Final player spawn at pixel position (%f, %f), block position (%d, %d)\n", px, py, spawnBlockX, spawnBlockY)
 
 	w.Entities = append(w.Entities, player.NewPlayer(px, py))
+	progress.UpdateCurrentStepProgress(3, "Created player entity")
+	time.Sleep(200 * time.Millisecond)
+
+	// Complete spawning player step
+	progress.CompleteCurrentStep()
+
+	// Finalize
+	progress.UpdateCurrentStepProgress(1, "World generation finished!")
+	time.Sleep(300 * time.Millisecond)
+	progress.CompleteCurrentStep()
+
 	return w
 }
 
