@@ -37,10 +37,7 @@ type BiomeType int
 const (
 	PlainseBiome BiomeType = iota
 	ForestBiome
-	DesertBiome
 	MountainBiome
-	SwampBiome
-	TundraBiome
 	JungleBiome
 	OceanBiome
 )
@@ -77,20 +74,14 @@ func (sn *PerlinNoise) GetBiomeAt(x float64) BiomeData {
 		elevation = 1.0
 	}
 
-	// Determine biome based on temperature and humidity
+	// Determine biome based on temperature and humidity - simplified to 5 biomes
 	var biomeType BiomeType
 	if elevation > 0.6 {
 		biomeType = MountainBiome
-	} else if temperature < -0.4 {
-		biomeType = TundraBiome
-	} else if humidity < -0.4 {
-		biomeType = DesertBiome
 	} else if temperature > 0.5 && humidity > 0.3 {
 		biomeType = JungleBiome
 	} else if humidity > 0.2 && temperature > -0.2 {
 		biomeType = ForestBiome
-	} else if humidity > 0.5 && elevation < -0.2 {
-		biomeType = SwampBiome
 	} else if elevation < -0.5 {
 		biomeType = OceanBiome
 	} else {
@@ -123,32 +114,12 @@ func (sn *PerlinNoise) GetBiomeTerrainHeight(x float64, biome BiomeData) float64
 		rolling := sn.FractalNoise1D(x*0.04, 1, 0.045, 0.6, 0.5)
 		return baseNoise*0.5 + hills*0.8 + rolling*0.4
 
-	case DesertBiome:
-		// Sharp mesas, deep valleys, and towering dunes
-		mesas := sn.RidgedNoise1D(x*0.012, 2, 0.015, 1.3)
-		dunes := sn.FractalNoise1D(x*0.025, 3, 0.03, 1.0, 0.6)
-		canyons := sn.FractalNoise1D(x*0.006, 2, 0.008, 1.5, 0.5)
-		return baseNoise*0.3 + mesas*1.5 + dunes*0.9 + canyons*1.2
-
 	case ForestBiome:
 		// Varied mountainous forest terrain with deep valleys
 		forestHills := sn.FractalNoise1D(x*0.012, 3, 0.015, 1.2, 0.6)
 		valleys := sn.FractalNoise1D(x*0.008, 2, 0.01, 1.0, 0.7)
 		ridges := sn.FractalNoise1D(x*0.03, 2, 0.035, 0.8, 0.5)
 		return baseNoise*0.4 + forestHills*1.3 + valleys*1.0 + ridges*0.6
-
-	case SwampBiome:
-		// Low-lying with occasional hills and deep marshes
-		marshes := sn.FractalNoise1D(x*0.02, 2, 0.025, 0.4, 0.6)
-		lowHills := sn.FractalNoise1D(x*0.015, 1, 0.018, 0.6, 0.5)
-		return baseNoise*0.2 + marshes*0.3 + lowHills*0.4 - 0.6 // Generally lower elevation
-
-	case TundraBiome:
-		// Jagged frozen terrain with dramatic ice formations
-		frozenPeaks := sn.FractalNoise1D(x*0.015, 3, 0.018, 1.4, 0.5)
-		iceCaps := sn.RidgedNoise1D(x*0.025, 2, 0.03, 1.0)
-		glacialValleys := sn.FractalNoise1D(x*0.008, 2, 0.01, 1.1, 0.7)
-		return baseNoise*0.3 + frozenPeaks*1.4 + iceCaps*0.9 + glacialValleys*1.0
 
 	case JungleBiome:
 		// Dense, varied terrain with deep ravines and towering canopy areas

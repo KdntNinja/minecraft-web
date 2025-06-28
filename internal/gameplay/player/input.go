@@ -131,15 +131,15 @@ func (p *Player) handleBlockSelection() {
 	} else if inpututil.IsKeyJustPressed(ebiten.Key3) {
 		p.SelectedBlock = block.Grass
 	} else if inpututil.IsKeyJustPressed(ebiten.Key4) {
-		p.SelectedBlock = block.Sand
+		p.SelectedBlock = block.Clay
 	} else if inpututil.IsKeyJustPressed(ebiten.Key5) {
 		p.SelectedBlock = block.Wood
 	} else if inpututil.IsKeyJustPressed(ebiten.Key6) {
 		p.SelectedBlock = block.Leaves
 	} else if inpututil.IsKeyJustPressed(ebiten.Key7) {
-		p.SelectedBlock = block.Clay
+		p.SelectedBlock = block.Water
 	} else if inpututil.IsKeyJustPressed(ebiten.Key8) {
-		p.SelectedBlock = block.Snow
+		p.SelectedBlock = block.IronOre
 	} else if inpututil.IsKeyJustPressed(ebiten.Key9) {
 		p.SelectedBlock = block.CopperOre
 	}

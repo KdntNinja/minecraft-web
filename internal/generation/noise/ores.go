@@ -95,10 +95,12 @@ func (sn *PerlinNoise) RealisticOreGeneration(x, y float64, depthFromSurface int
 	switch biome.Type {
 	case MountainBiome:
 		biomeModifier = 1.3 // Mountains have more ores
-	case DesertBiome:
-		biomeModifier = 0.8 // Deserts have fewer ores
-	case SwampBiome:
-		biomeModifier = 0.9 // Swamps have different ore distribution
+	case ForestBiome:
+		biomeModifier = 1.1 // Forests have slightly more ores
+	case JungleBiome:
+		biomeModifier = 0.9 // Jungles have different ore distribution
+	case OceanBiome:
+		biomeModifier = 0.8 // Ocean areas have fewer ores
 	}
 
 	// Layered ore generation based on depth

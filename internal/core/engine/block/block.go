@@ -9,9 +9,7 @@ const (
 	// Surface blocks
 	Grass
 	Dirt
-	Sand
 	Clay
-	Snow
 	// Stone variants
 	Stone
 	// Ore blocks
@@ -19,7 +17,6 @@ const (
 	IronOre
 	GoldOre
 	// Underground blocks
-	Mud
 	Ash
 	// Tree blocks
 	Wood

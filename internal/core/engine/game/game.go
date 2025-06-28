@@ -12,7 +12,7 @@ import (
 	"github.com/KdntNinja/webcraft/internal/gameplay/player"
 	"github.com/KdntNinja/webcraft/internal/gameplay/world"
 	"github.com/KdntNinja/webcraft/internal/generation/terrain"
-	"github.com/KdntNinja/webcraft/internal/systems/rendering/render"
+	"github.com/KdntNinja/webcraft/internal/rendering"
 )
 
 type Game struct {
@@ -154,7 +154,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	screen.Fill(color.RGBA{135, 206, 250, 255}) // Sky blue
 
 	// Render world directly to screen (avoid intermediate image allocation)
-	render.DrawWithCamera(g.World.Chunks, screen, g.CameraX, g.CameraY)
+	rendering.DrawWithCamera(g.World.Chunks, screen, g.CameraX, g.CameraY)
 
 	// Pre-calculate camera bounds for entity culling
 	camLeft := g.CameraX - float64(settings.TileSize*2)

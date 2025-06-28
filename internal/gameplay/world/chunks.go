@@ -19,6 +19,8 @@ func FindSurfaceHeight(worldX int, w *World) int {
 	chunkX := worldX / settings.ChunkWidth
 	inChunkX := worldX % settings.ChunkWidth
 
+	fmt.Printf("SURFACE_DEBUG: FindSurfaceHeight for worldX=%d, chunkX=%d, inChunkX=%d\n", worldX, chunkX, inChunkX)
+
 	// Search from top (lowest Y) to bottom (highest Y) for the first solid block
 	// Only search in existing chunks since world is pre-generated
 	for chunkY := 0; chunkY < settings.WorldChunksY; chunkY++ {
@@ -31,11 +33,19 @@ func FindSurfaceHeight(worldX int, w *World) int {
 			globalY := chunkY*settings.ChunkHeight + y
 			if inChunkX >= 0 && inChunkX < settings.ChunkWidth {
 				blockType := chunk[y][inChunkX]
+
+				// Debug: print first few blocks we encounter
+				if chunkY <= 2 && y <= 5 {
+					fmt.Printf("SURFACE_DEBUG: chunkY=%d, y=%d, globalY=%d, blockType=%d\n", chunkY, y, globalY, int(blockType))
+				}
+
 				if blockType != block.Air {
+					fmt.Printf("SURFACE_DEBUG: Found surface at globalY=%d, blockType=%d\n", globalY, int(blockType))
 					return globalY
 				}
 			}
 		}
 	}
+	fmt.Printf("SURFACE_DEBUG: No surface found, using default=%d\n", settings.SurfaceBaseHeight)
 	return settings.SurfaceBaseHeight // Use settings default if no surface found
 }

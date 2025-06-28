@@ -72,21 +72,19 @@ func generateTree(chunk *block.Chunk, surfaceX, surfaceY int, biome noise.BiomeD
 
 // Tree placement logic
 func shouldPlaceTree(globalX int, biome noise.BiomeData) bool {
-	// Calculate tree chance based on biome
+	// Calculate tree chance based on biome - updated for 5 biomes
 	var treeChance float64
 	switch biome.Type {
 	case 0: // PlainsBiome
 		treeChance = 0.02 // Sparse trees
 	case 1: // ForestBiome
 		treeChance = 0.15 // Dense forest
-	case 3: // MountainBiome
+	case 2: // MountainBiome (renumbered)
 		treeChance = 0.05 // Sparse mountain trees
-	case 4: // SwampBiome
-		treeChance = 0.08 // Moderate swamp trees
-	case 5: // TundraBiome
-		treeChance = 0.03 // Very sparse tundra trees
-	case 6: // JungleBiome
+	case 3: // JungleBiome (renumbered)
 		treeChance = 0.20 // Very dense jungle
+	case 4: // OceanBiome (renumbered)
+		treeChance = 0.0 // No trees in ocean
 	default:
 		treeChance = 0.02
 	}
@@ -97,21 +95,19 @@ func shouldPlaceTree(globalX int, biome noise.BiomeData) bool {
 }
 
 func shouldPlaceTreeByID(globalX int, biomeID int) bool {
-	// Calculate tree chance based on biome ID
+	// Calculate tree chance based on biome ID - updated for 5 biomes
 	var treeChance float64
 	switch biomeID {
 	case 0: // PlainsBiome
 		treeChance = 0.02
 	case 1: // ForestBiome
 		treeChance = 0.15
-	case 3: // MountainBiome
+	case 2: // MountainBiome (renumbered)
 		treeChance = 0.05
-	case 4: // SwampBiome
-		treeChance = 0.08
-	case 5: // TundraBiome
-		treeChance = 0.03
-	case 6: // JungleBiome
+	case 3: // JungleBiome (renumbered)
 		treeChance = 0.20
+	case 4: // OceanBiome (renumbered)
+		treeChance = 0.0 // No trees in ocean
 	default:
 		treeChance = 0.02
 	}

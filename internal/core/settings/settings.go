@@ -44,3 +44,8 @@ const (
 	CaveFrequency = 0.08 // Cave frequency
 	CaveThreshold = 0.5  // Cave noise threshold
 )
+
+// --- Rendering ---
+const (
+	AtlasTileSize = 8 // Atlas tile size (px)
+)
