@@ -21,9 +21,9 @@ const (
 	// Tree blocks
 	Wood
 	Leaves
-	// Liquids (for future use)
+	// Liquids
 	Water
-	// Hell/Underworld blocks (simplified)
+	// Hell/Underworld blocks
 	Hellstone
 )
 

@@ -12,14 +12,14 @@ import (
 	"github.com/KdntNinja/webcraft/internal/core/settings"
 )
 
-//go:embed Dirt.png Grass.png "Gray Clay.png" "Oak Leaves.png" "Oak Logs.png" "Red Brick.png" "Red Clay.png" Slate.png Stone.png Water.png
+//go:embed *.png
 var imageFiles embed.FS
 
 var BlockTextures map[block.BlockType]*ebiten.Image
 
 // AtlasCoord represents coordinates within an individual texture file's atlas
 type AtlasCoord struct {
-	X, Y int // Position in the texture's internal atlas grid
+	X, Y float64 // Position in the texture's internal atlas grid (supports fractional positions)
 }
 
 // BlockTextureConfig maps block types to their file and atlas coordinates
@@ -31,7 +31,7 @@ type BlockTextureConfig struct {
 // BlockTextureConfigs maps block types to their texture file and coordinates
 var BlockTextureConfigs = map[block.BlockType]BlockTextureConfig{
 	block.Dirt:      {Filename: "Dirt.png", Coord: AtlasCoord{X: 0, Y: 0}},
-	block.Grass:     {Filename: "Grass.png", Coord: AtlasCoord{X: 0, Y: 2}},
+	block.Grass:     {Filename: "Grass.png", Coord: AtlasCoord{X: 2, Y: 0.3}},
 	block.Clay:      {Filename: "Gray Clay.png", Coord: AtlasCoord{X: 0, Y: 0}},
 	block.Leaves:    {Filename: "Oak Leaves.png", Coord: AtlasCoord{X: 0, Y: 0}}, // Look at later
 	block.Wood:      {Filename: "Oak Logs.png", Coord: AtlasCoord{X: 0, Y: 0}},
@@ -83,8 +83,8 @@ func loadTextureFromAtlas(filename string, coord AtlasCoord, tileSize int) (*ebi
 	atlasImg := ebiten.NewImageFromImage(img)
 
 	// Extract the specific tile from the atlas using settings.AtlasTileSize
-	x := coord.X * settings.AtlasTileSize
-	y := coord.Y * settings.AtlasTileSize
+	x := int(coord.X * float64(settings.AtlasTileSize))
+	y := int(coord.Y * float64(settings.AtlasTileSize))
 
 	// Extract the sub-image
 	subImg := atlasImg.SubImage(image.Rect(x, y, x+settings.AtlasTileSize, y+settings.AtlasTileSize)).(*ebiten.Image)

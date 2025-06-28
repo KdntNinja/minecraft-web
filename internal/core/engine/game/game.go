@@ -11,7 +11,7 @@ import (
 	"github.com/KdntNinja/webcraft/internal/core/settings"
 	"github.com/KdntNinja/webcraft/internal/gameplay/player"
 	"github.com/KdntNinja/webcraft/internal/gameplay/world"
-	"github.com/KdntNinja/webcraft/internal/generation/terrain"
+	"github.com/KdntNinja/webcraft/internal/generation"
 	"github.com/KdntNinja/webcraft/internal/rendering"
 )
 
@@ -47,7 +47,7 @@ func NewGame() *Game {
 	ebiten.SetCursorMode(ebiten.CursorModeHidden)
 
 	// Always reset world generation with the new seed
-	terrain.ResetWorldGeneration(seed)
+	generation.ResetWorldGeneration(seed)
 
 	// Pre-allocate player image to avoid recreating it every frame
 	g.playerImage = ebiten.NewImage(settings.PlayerWidth, settings.PlayerHeight)

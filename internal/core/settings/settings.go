@@ -20,8 +20,8 @@ const (
 	BiomeCount         = 5    // Number of biome types
 	BiomeBlendDistance = 16   // Biome blend width (blocks)
 	SurfaceBaseHeight  = 64   // Average surface Y
-	SurfaceHeightVar   = 40   // Surface height variation - increased for extreme terrain
-	TreeChance         = 0.15 // Tree spawn chance
+	SurfaceHeightVar   = 60   // Surface height variation - increased for more dramatic terrain
+	TreeChance         = 0.08 // Reduced tree spawn chance for more realistic forests
 )
 
 // --- Player/Entity Physics ---
@@ -40,9 +40,9 @@ const (
 
 // --- Ore/Cave Generation ---
 const (
-	OreVeinChance = 0.02 // Ore vein chance
+	OreVeinChance = 0.03 // Increased ore vein chance for more resources
 	CaveFrequency = 0.08 // Cave frequency
-	CaveThreshold = 0.5  // Cave noise threshold
+	CaveThreshold = 0.6  // Cave noise threshold - higher for fewer but larger caves
 )
 
 // --- Rendering ---

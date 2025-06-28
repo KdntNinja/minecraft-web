@@ -27,7 +27,7 @@ This directory contains the core engine and gameplay components for Webcraft, or
 
 - **Component-based design:** Entities implement interfaces for physics, rendering, and interaction.
 - **Centralized settings:** All major constants (player, world, rendering, etc.) are defined in `core/settings/settings.go` and used throughout the codebase.
-- **Procedural world generation:** Uses advanced noise algorithms for varied, infinite terrain.
+- **Procedural world generation:** Uses advanced noise algorithms for varied, infinite generation.
 - **Optimized rendering:** Batching, culling, and camera logic for smooth performance.
 - **Robust physics:** AABB collision detection, sub-pixel precision, and entity movement.
 

@@ -7,7 +7,7 @@ import (
 	"github.com/KdntNinja/webcraft/internal/core/physics/entity"
 	"github.com/KdntNinja/webcraft/internal/core/settings"
 	"github.com/KdntNinja/webcraft/internal/gameplay/player"
-	"github.com/KdntNinja/webcraft/internal/generation/terrain"
+	"github.com/KdntNinja/webcraft/internal/generation"
 )
 
 type ChunkCoord struct {
@@ -28,7 +28,7 @@ type World struct {
 
 // NewWorld constructs a new World instance with a fixed set of pre-generated chunks
 func NewWorld(seed int64) *World {
-	terrain.ResetWorldGeneration(seed)
+	generation.ResetWorldGeneration(seed)
 	w := &World{
 		Chunks:    make(map[ChunkCoord]block.Chunk),
 		Entities:  entity.Entities{},
