@@ -21,7 +21,7 @@ func NewPlayer(x, y float64) *Player {
 		AABB: entity.AABB{
 			X: x, Y: y, Width: settings.PlayerWidth, Height: settings.PlayerHeight,
 		},
-		SelectedBlock:       block.Dirt,                     // Default to dirt blocks
+		SelectedBlock:       block.Grass,                    // Default to grass blocks (block 1)
 		InteractionRange:    float64(settings.TileSize * 4), // 4 block radius
 		InteractionCooldown: 0,                              // 3 frames cooldown (about 0.05 seconds at 60fps)
 	}

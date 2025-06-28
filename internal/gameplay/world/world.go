@@ -77,10 +77,10 @@ func NewWorld(seed int64) *World {
 	}
 	fmt.Printf("\n")
 
-	// Add player entity at pixel (0, 0) in world coordinates
-	fmt.Printf("DEBUG: Player spawning at pixel (0, 0)\n")
+	// Add player entity at pixel (1, 0) in world coordinates
+	fmt.Printf("DEBUG: Player spawning at pixel (1, 0)\n")
 
-	// Spawn player at pixel (0, 0), which corresponds to block (0, 0)
+	// Spawn player at pixel (1, 0), which is still in block (0, 0)
 	spawnBlockX := 0
 	spawnBlockY := 0
 
@@ -99,8 +99,8 @@ func NewWorld(seed int64) *World {
 		spawnBlockY = 200
 	}
 
-	// Convert to pixel coordinates - spawn at exact pixel (0, 0) for X, calculated Y
-	px := 0.0
+	// Convert to pixel coordinates - spawn at exact pixel (1, 0) for X, calculated Y
+	px := 1.0
 	py := float64(spawnBlockY * settings.TileSize)
 
 	fmt.Printf("DEBUG: Final player spawn at pixel position (%f, %f), block position (%d, %d)\n", px, py, spawnBlockX, spawnBlockY)

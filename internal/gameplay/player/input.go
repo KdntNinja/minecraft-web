@@ -66,35 +66,15 @@ func (p *Player) HandleInput(cameraX, cameraY float64) (isMoving bool, targetVX 
 			blockY = int(worldY/float64(settings.TileSize)) - 1
 		}
 
-		// Check if block is within interaction range (from player center to closest point on block)
+		// Check if block is within interaction range (from player center to block center, matching crosshair)
 		playerCenterX := p.AABB.X + float64(p.AABB.Width)/2
 		playerCenterY := p.AABB.Y + float64(p.AABB.Height)/2
+		blockCenterX := float64(blockX)*float64(settings.TileSize) + float64(settings.TileSize)/2
+		blockCenterY := float64(blockY)*float64(settings.TileSize) + float64(settings.TileSize)/2
 
-		// Calculate distance to the closest point on the block (not just the center)
-		blockLeft := float64(blockX) * float64(settings.TileSize)
-		blockRight := blockLeft + float64(settings.TileSize)
-		blockTop := float64(blockY) * float64(settings.TileSize)
-		blockBottom := blockTop + float64(settings.TileSize)
-
-		// Find closest point on the block to the player center
-		closestX := playerCenterX
-		closestY := playerCenterY
-
-		if playerCenterX < blockLeft {
-			closestX = blockLeft
-		} else if playerCenterX > blockRight {
-			closestX = blockRight
-		}
-
-		if playerCenterY < blockTop {
-			closestY = blockTop
-		} else if playerCenterY > blockBottom {
-			closestY = blockBottom
-		}
-
-		// Calculate distance to closest point on block
-		dx := closestX - playerCenterX
-		dy := closestY - playerCenterY
+		// Calculate distance to block center (matching crosshair calculation)
+		dx := blockCenterX - playerCenterX
+		dy := blockCenterY - playerCenterY
 		distance := dx*dx + dy*dy // Using squared distance to avoid sqrt
 
 		if distance <= p.InteractionRange*p.InteractionRange {
@@ -125,22 +105,24 @@ func (p *Player) HandleInput(cameraX, cameraY float64) (isMoving bool, targetVX 
 // handleBlockSelection processes number key input to change selected block type
 func (p *Player) handleBlockSelection() {
 	if inpututil.IsKeyJustPressed(ebiten.Key1) {
-		p.SelectedBlock = block.Dirt
-	} else if inpututil.IsKeyJustPressed(ebiten.Key2) {
-		p.SelectedBlock = block.Stone
-	} else if inpututil.IsKeyJustPressed(ebiten.Key3) {
 		p.SelectedBlock = block.Grass
-	} else if inpututil.IsKeyJustPressed(ebiten.Key4) {
+	} else if inpututil.IsKeyJustPressed(ebiten.Key2) {
+		p.SelectedBlock = block.Dirt
+	} else if inpututil.IsKeyJustPressed(ebiten.Key3) {
 		p.SelectedBlock = block.Clay
+	} else if inpututil.IsKeyJustPressed(ebiten.Key4) {
+		p.SelectedBlock = block.Stone
 	} else if inpututil.IsKeyJustPressed(ebiten.Key5) {
-		p.SelectedBlock = block.Wood
-	} else if inpututil.IsKeyJustPressed(ebiten.Key6) {
-		p.SelectedBlock = block.Leaves
-	} else if inpututil.IsKeyJustPressed(ebiten.Key7) {
-		p.SelectedBlock = block.Water
-	} else if inpututil.IsKeyJustPressed(ebiten.Key8) {
-		p.SelectedBlock = block.IronOre
-	} else if inpututil.IsKeyJustPressed(ebiten.Key9) {
 		p.SelectedBlock = block.CopperOre
+	} else if inpututil.IsKeyJustPressed(ebiten.Key6) {
+		p.SelectedBlock = block.IronOre
+	} else if inpututil.IsKeyJustPressed(ebiten.Key7) {
+		p.SelectedBlock = block.GoldOre
+	} else if inpututil.IsKeyJustPressed(ebiten.Key8) {
+		p.SelectedBlock = block.Ash
+	} else if inpututil.IsKeyJustPressed(ebiten.Key9) {
+		p.SelectedBlock = block.Wood
+	} else if inpututil.IsKeyJustPressed(ebiten.Key0) {
+		p.SelectedBlock = block.Leaves
 	}
 }

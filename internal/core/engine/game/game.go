@@ -195,7 +195,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		if player, ok := g.World.Entities[0].(*player.Player); ok {
 			selectedBlockText := fmt.Sprintf("\nSelected Block: %v", player.SelectedBlock)
 			controlsText := "\nControls: Left Click = Break, Right Click = Place"
-			numbersText := "\nBlocks: 1=Dirt 2=Stone 3=Grass 4=Sand 5=Wood 6=Leaves 7=Clay 8=Snow 9=Copper"
+			numbersText := "\nBlocks: 1=Grass 2=Dirt 3=Clay 4=Stone 5=Copper 6=Iron 7=Gold 8=Ash 9=Wood 0=Leaves"
 			uiText := fpsText + selectedBlockText + controlsText + numbersText
 			ebitenutil.DebugPrint(screen, uiText)
 		}
