@@ -30,18 +30,18 @@ type BlockTextureConfig struct {
 
 // BlockTextureConfigs maps block types to their texture file and coordinates
 var BlockTextureConfigs = map[block.BlockType]BlockTextureConfig{
-	block.Dirt:      {Filename: "Dirt.png", Coord: AtlasCoord{X: 0, Y: 0}},
-	block.Grass:     {Filename: "Grass.png", Coord: AtlasCoord{X: 2, Y: 0.3}},
-	block.Clay:      {Filename: "Gray Clay.png", Coord: AtlasCoord{X: 0, Y: 0}},
-	block.Leaves:    {Filename: "Oak Leaves.png", Coord: AtlasCoord{X: 0, Y: 0}}, // Look at later
-	block.Wood:      {Filename: "Oak Logs.png", Coord: AtlasCoord{X: 0, Y: 0}},
-	block.GoldOre:   {Filename: "Red Brick.png", Coord: AtlasCoord{X: 0, Y: 6}},
-	block.CopperOre: {Filename: "Red Clay.png", Coord: AtlasCoord{X: 0, Y: 0}},
-	block.IronOre:   {Filename: "Slate.png", Coord: AtlasCoord{X: 0, Y: 0}},
-	block.Stone:     {Filename: "Stone.png", Coord: AtlasCoord{X: 0, Y: 0}},
-	block.Water:     {Filename: "Water.png", Coord: AtlasCoord{X: 1, Y: 1}},
-	block.Ash:       {Filename: "Gray Clay.png", Coord: AtlasCoord{X: 0, Y: 1}}, // Use clay atlas, different tile
-	block.Hellstone: {Filename: "Red Brick.png", Coord: AtlasCoord{X: 0, Y: 0}}, // Use red brick atlas
+	block.Dirt:      {Filename: "dirt.png", Coord: AtlasCoord{X: 0, Y: 0}},
+	block.Grass:     {Filename: "grass.png", Coord: AtlasCoord{X: 2, Y: 0.3}},
+	block.Clay:      {Filename: "clay.png", Coord: AtlasCoord{X: 0, Y: 0}},
+	block.Leaves:    {Filename: "leaves.png", Coord: AtlasCoord{X: 0, Y: 0}},
+	block.Wood:      {Filename: "wood.png", Coord: AtlasCoord{X: 0, Y: 0}},
+	block.GoldOre:   {Filename: "goldore.png", Coord: AtlasCoord{X: 0, Y: 6}},
+	block.CopperOre: {Filename: "copperore.png", Coord: AtlasCoord{X: 0, Y: 0}},
+	block.IronOre:   {Filename: "ironore.png", Coord: AtlasCoord{X: 0, Y: 0}},
+	block.Stone:     {Filename: "stone.png", Coord: AtlasCoord{X: 0, Y: 0}},
+	block.Water:     {Filename: "water.png", Coord: AtlasCoord{X: 1, Y: 1}},
+	block.Ash:       {Filename: "clay.png", Coord: AtlasCoord{X: 0, Y: 1}},
+	block.Hellstone: {Filename: "goldore.png", Coord: AtlasCoord{X: 0, Y: 0}},
 }
 
 // LoadTextures loads all block textures from their individual atlas files
