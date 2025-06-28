@@ -1,23 +1,27 @@
 package noise
 
+import (
+	"github.com/KdntNinja/webcraft/internal/core/settings"
+)
+
 // Biome and underground layer generation
 
-func (sn *SimplexNoise) TerrariaBiomeNoise(x float64) float64 {
-	largeBiomes := sn.FractalNoise1D(x, 2, 0.002, 1.0, 0.5)      // Continental biome zones
-	mediumBiomes := sn.FractalNoise1D(x*1.3, 3, 0.008, 0.6, 0.6) // Regional variations
-	transitions := sn.Noise1D(x*0.01) * 0.3                      // Smooth transitions
+func (sn *PerlinNoise) TerrariaBiomeNoise(x float64) float64 {
+	largeBiomes := sn.FractalNoise1D(x, 2, 0.002, 1.0, settings.PerlinPersistence)                           // Continental biome zones
+	mediumBiomes := sn.FractalNoise1D(x*1.3, settings.PerlinOctaves, 0.008, 0.6, settings.PerlinPersistence) // Regional variations
+	transitions := sn.Noise1D(x*0.01) * 0.3                                                                  // Smooth transitions
 
 	return largeBiomes + mediumBiomes + transitions
 }
 
-func (sn *SimplexNoise) TerrariaUndergroundNoise(x, y float64) float64 {
-	dirtStoneTransition := sn.FractalNoise2D(x, y, 3, 0.03, 1.0, 0.6)    // Dirt to stone layer
-	stoneVariation := sn.FractalNoise2D(x*1.2, y*0.8, 2, 0.02, 0.8, 0.5) // Stone layer patterns
+func (sn *PerlinNoise) TerrariaUndergroundNoise(x, y float64) float64 {
+	dirtStoneTransition := sn.FractalNoise2D(x, y, settings.PerlinOctaves, 0.03, 1.0, 0.6)      // Dirt to stone layer
+	stoneVariation := sn.FractalNoise2D(x*1.2, y*0.8, 2, 0.02, 0.8, settings.PerlinPersistence) // Stone layer patterns
 
 	return dirtStoneTransition + stoneVariation*0.5
 }
 
-func (sn *SimplexNoise) TerrariaUnderworldNoise(x, y float64) float64 {
+func (sn *PerlinNoise) TerrariaUnderworldNoise(x, y float64) float64 {
 	ashPockets := sn.FractalNoise2D(x, y, 4, 0.08, 1.0, 0.7)          // Ash formations
 	lavaPockets := sn.FractalNoise2D(x*0.7, y*1.3, 3, 0.05, 1.2, 0.6) // Lava chambers
 	hellstoneVeins := sn.RidgedNoise2D(x*2, y*0.5, 2, 0.1, 1.0)       // Hellstone ore veins
@@ -48,7 +52,7 @@ type BiomeData struct {
 }
 
 // GetBiomeAt determines the biome at a given x coordinate
-func (sn *SimplexNoise) GetBiomeAt(x float64) BiomeData {
+func (sn *PerlinNoise) GetBiomeAt(x float64) BiomeData {
 	// Use multiple noise layers for biome determination
 	temperature := sn.FractalNoise1D(x*0.001, 3, 0.002, 1.0, 0.5)
 	humidity := sn.FractalNoise1D(x*0.0015+1000, 3, 0.0025, 1.0, 0.5)
@@ -89,7 +93,7 @@ func (sn *SimplexNoise) GetBiomeAt(x float64) BiomeData {
 }
 
 // GetBiomeTerrainHeight returns terrain height modified by biome characteristics
-func (sn *SimplexNoise) GetBiomeTerrainHeight(x float64, biome BiomeData) float64 {
+func (sn *PerlinNoise) GetBiomeTerrainHeight(x float64, biome BiomeData) float64 {
 	baseHeight := sn.SimpleTerrainNoise(x)
 
 	switch biome.Type {

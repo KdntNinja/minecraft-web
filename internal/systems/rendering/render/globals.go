@@ -4,6 +4,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 
 	"github.com/KdntNinja/webcraft/internal/core/engine/block"
+	"github.com/KdntNinja/webcraft/internal/core/settings"
 )
 
 var (
@@ -31,7 +32,7 @@ func initTileImages() {
 		if blockType == block.Air {
 			continue // Skip air blocks
 		}
-		tile := ebiten.NewImage(block.TileSize, block.TileSize)
+		tile := ebiten.NewImage(settings.TileSize, settings.TileSize)
 		tile.Fill(getBlockColorFast(blockType))
 		tileImages[blockType] = tile
 	}

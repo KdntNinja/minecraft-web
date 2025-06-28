@@ -2,6 +2,7 @@ package player
 
 import (
 	"github.com/KdntNinja/webcraft/internal/core/physics/entity"
+	"github.com/KdntNinja/webcraft/internal/core/settings"
 )
 
 type Player struct {
@@ -13,7 +14,7 @@ type Player struct {
 func NewPlayer(x, y float64) *Player {
 	return &Player{
 		AABB: entity.AABB{
-			X: x, Y: y, Width: Width, Height: Height,
+			X: x, Y: y, Width: settings.PlayerWidth, Height: settings.PlayerHeight,
 		},
 	}
 }

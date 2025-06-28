@@ -6,6 +6,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 
 	"github.com/KdntNinja/webcraft/internal/core/engine/block"
+	"github.com/KdntNinja/webcraft/internal/core/settings"
 )
 
 // DrawWithCamera renders the world with camera offset for following player
@@ -20,10 +21,10 @@ func DrawWithCamera(g *[][]block.Chunk, screen *ebiten.Image, cameraX, cameraY f
 	screenWidth, screenHeight := screen.Bounds().Dx(), screen.Bounds().Dy()
 
 	// Calculate visible tile bounds based on camera position
-	startTileX := int(cameraX / float64(block.TileSize))
-	endTileX := int((cameraX+float64(screenWidth))/float64(block.TileSize)) + 2 // +2 for safety margin
-	startTileY := int(cameraY / float64(block.TileSize))
-	endTileY := int((cameraY+float64(screenHeight))/float64(block.TileSize)) + 2 // +2 for safety margin
+	startTileX := int(cameraX / float64(settings.TileSize))
+	endTileX := int((cameraX+float64(screenWidth))/float64(settings.TileSize)) + 2 // +2 for safety margin
+	startTileY := int(cameraY / float64(settings.TileSize))
+	endTileY := int((cameraY+float64(screenHeight))/float64(settings.TileSize)) + 2 // +2 for safety margin
 
 	// Ensure bounds are not negative
 	if startTileX < 0 {
@@ -43,8 +44,8 @@ func DrawWithCamera(g *[][]block.Chunk, screen *ebiten.Image, cameraX, cameraY f
 		return
 	}
 
-	maxTileX := maxChunksX * block.ChunkWidth
-	maxTileY := maxChunksY * block.ChunkHeight
+	maxTileX := maxChunksX * settings.ChunkWidth
+	maxTileY := maxChunksY * settings.ChunkHeight
 
 	// Clamp end bounds
 	if endTileX > maxTileX {
@@ -58,10 +59,10 @@ func DrawWithCamera(g *[][]block.Chunk, screen *ebiten.Image, cameraX, cameraY f
 	for cy := 0; cy < maxChunksY; cy++ {
 		for cx := 0; cx < maxChunksX; cx++ {
 			// Skip chunks that are completely outside the view
-			chunkStartX := cx * block.ChunkWidth
-			chunkEndX := chunkStartX + block.ChunkWidth
-			chunkStartY := cy * block.ChunkHeight
-			chunkEndY := chunkStartY + block.ChunkHeight
+			chunkStartX := cx * settings.ChunkWidth
+			chunkEndX := chunkStartX + settings.ChunkWidth
+			chunkStartY := cy * settings.ChunkHeight
+			chunkEndY := chunkStartY + settings.ChunkHeight
 
 			if chunkEndX < startTileX || chunkStartX > endTileX ||
 				chunkEndY < startTileY || chunkStartY > endTileY {
@@ -69,10 +70,10 @@ func DrawWithCamera(g *[][]block.Chunk, screen *ebiten.Image, cameraX, cameraY f
 			}
 
 			chunk := (*g)[cy][cx]
-			for y := 0; y < block.ChunkHeight; y++ {
-				for x := 0; x < block.ChunkWidth; x++ {
-					globalTileX := cx*block.ChunkWidth + x
-					globalTileY := cy*block.ChunkHeight + y
+			for y := 0; y < settings.ChunkHeight; y++ {
+				for x := 0; x < settings.ChunkWidth; x++ {
+					globalTileX := cx*settings.ChunkWidth + x
+					globalTileY := cy*settings.ChunkHeight + y
 
 					// Skip tiles outside visible area
 					if globalTileX < startTileX || globalTileX >= endTileX ||
@@ -86,12 +87,12 @@ func DrawWithCamera(g *[][]block.Chunk, screen *ebiten.Image, cameraX, cameraY f
 					}
 
 					// Calculate screen position with camera offset
-					px := float64(globalTileX*block.TileSize) - cameraX
-					py := float64(globalTileY*block.TileSize) - cameraY
+					px := float64(globalTileX*settings.TileSize) - cameraX
+					py := float64(globalTileY*settings.TileSize) - cameraY
 
 					// Final bounds check to ensure we're drawing on screen
-					if px+float64(block.TileSize) < 0 || px >= float64(screenWidth) ||
-						py+float64(block.TileSize) < 0 || py >= float64(screenHeight) {
+					if px+float64(settings.TileSize) < 0 || px >= float64(screenWidth) ||
+						py+float64(settings.TileSize) < 0 || py >= float64(screenHeight) {
 						continue
 					}
 

@@ -2,11 +2,11 @@ package noise
 
 // Enhanced cave generation functions for underground tunnel systems with seed-based variety
 
-func (sn *SimplexNoise) FastCaveNoise(x, y float64) float64 {
+func (sn *PerlinNoise) FastCaveNoise(x, y float64) float64 {
 	return sn.Noise2D(x*0.05, y*0.08) // Single octave for performance
 }
 
-func (sn *SimplexNoise) HybridCaveNoise(x, y float64) float64 {
+func (sn *PerlinNoise) HybridCaveNoise(x, y float64) float64 {
 	minecraft := sn.Noise2D(x*0.04, y*0.02) // Horizontal tunnel bias
 	terraria := sn.TerrariaCaveNoise(x, y)  // More chaotic caves
 
@@ -15,7 +15,7 @@ func (sn *SimplexNoise) HybridCaveNoise(x, y float64) float64 {
 	return minecraft*(1.0-seedBlend) + terraria*seedBlend
 }
 
-func (sn *SimplexNoise) TerrariaCaveNoise(x, y float64) float64 {
+func (sn *PerlinNoise) TerrariaCaveNoise(x, y float64) float64 {
 	// Seed-based cave system variation
 	seedOffset := float64(sn.seed%1000) * 0.001
 
@@ -30,7 +30,7 @@ func (sn *SimplexNoise) TerrariaCaveNoise(x, y float64) float64 {
 }
 
 // EnhancedCaveNoise provides sophisticated cave generation with multiple layers
-func (sn *SimplexNoise) EnhancedCaveNoise(x, y float64) float64 {
+func (sn *PerlinNoise) EnhancedCaveNoise(x, y float64) float64 {
 	// Depth-based cave density
 	depth := y * 0.01
 	depthModifier := depth * 0.3 // More caves deeper down

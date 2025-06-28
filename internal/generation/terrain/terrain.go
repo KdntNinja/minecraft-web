@@ -2,17 +2,18 @@ package terrain
 
 import (
 	"github.com/KdntNinja/webcraft/internal/core/engine/block"
+	"github.com/KdntNinja/webcraft/internal/core/settings"
 	"github.com/KdntNinja/webcraft/internal/generation/noise"
 )
 
 var (
 	terrainHeights = make(map[int]int)
-	terrainNoise   *noise.SimplexNoise
+	terrainNoise   *noise.PerlinNoise
 )
 
 func initTerrainNoise() {
 	if terrainNoise == nil {
-		terrainNoise = noise.NewSimplexNoise(42) // Use a fixed seed for simplicity
+		terrainNoise = noise.NewPerlinNoise(42) // Use a fixed seed for simplicity
 		terrainHeights = make(map[int]int)
 	}
 }
@@ -31,8 +32,8 @@ func getSurfaceHeight(x int) int {
 	if height < 3 {
 		height = 3
 	}
-	if height > block.ChunkHeight-2 {
-		height = block.ChunkHeight - 2
+	if height > settings.ChunkHeight-2 {
+		height = settings.ChunkHeight - 2
 	}
 
 	terrainHeights[x] = height
@@ -120,7 +121,7 @@ func getBlockType(x, y int) block.BlockType {
 	surfaceY := getSurfaceHeight(x)
 	depth := y - surfaceY
 
-	if y < 0 || y >= block.ChunkHeight {
+	if y < 0 || y >= settings.ChunkHeight {
 		return block.Air
 	}
 
@@ -139,7 +140,7 @@ func getBlockType(x, y int) block.BlockType {
 	}
 
 	// Stone and ores below dirt
-	if y > surfaceY+3 && y < block.ChunkHeight-6 {
+	if y > surfaceY+3 && y < settings.ChunkHeight-6 {
 		// Occasionally generate ores
 		ore := getOreType(x, y, depth)
 		if ore != block.Stone {
@@ -149,7 +150,7 @@ func getBlockType(x, y int) block.BlockType {
 	}
 
 	// Underworld (bottom 6 layers)
-	if y >= block.ChunkHeight-6 {
+	if y >= settings.ChunkHeight-6 {
 		return block.Hellstone
 	}
 

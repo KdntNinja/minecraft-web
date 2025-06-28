@@ -2,11 +2,11 @@ package noise
 
 // Ore vein generation for underground mining with enhanced randomness
 
-func (sn *SimplexNoise) FastOreNoise(x, y float64) float64 {
+func (sn *PerlinNoise) FastOreNoise(x, y float64) float64 {
 	return sn.Noise2D(x*0.1, y*0.1) // Simple ore distribution
 }
 
-func (sn *SimplexNoise) TerrariaOreNoise(x, y float64, oreType int) float64 {
+func (sn *PerlinNoise) TerrariaOreNoise(x, y float64, oreType int) float64 {
 	var scale, threshold float64
 
 	switch oreType {
@@ -43,7 +43,7 @@ func (sn *SimplexNoise) TerrariaOreNoise(x, y float64, oreType int) float64 {
 }
 
 // EnhancedOreNoise provides sophisticated ore distribution with depth-based rarity
-func (sn *SimplexNoise) EnhancedOreNoise(x, y float64, depthFromSurface int) int {
+func (sn *PerlinNoise) EnhancedOreNoise(x, y float64, depthFromSurface int) int {
 	// Seed-based ore variation
 	seedVar := float64(sn.seed%555) * 0.001
 
@@ -86,7 +86,7 @@ func (sn *SimplexNoise) EnhancedOreNoise(x, y float64, depthFromSurface int) int
 }
 
 // Advanced ore generation with realistic distribution patterns
-func (sn *SimplexNoise) RealisticOreGeneration(x, y float64, depthFromSurface int, biome BiomeData) int {
+func (sn *PerlinNoise) RealisticOreGeneration(x, y float64, depthFromSurface int, biome BiomeData) int {
 	// Base ore density increases with depth
 	depthMultiplier := float64(depthFromSurface) / 50.0 // More ores deeper down
 
@@ -147,7 +147,7 @@ func (sn *SimplexNoise) RealisticOreGeneration(x, y float64, depthFromSurface in
 }
 
 // CaveGeneration creates realistic cave systems
-func (sn *SimplexNoise) GenerateCaves(x, y float64, depthFromSurface int) bool {
+func (sn *PerlinNoise) GenerateCaves(x, y float64, depthFromSurface int) bool {
 	// Caves are more common at medium depths
 	depthFactor := 1.0
 	if depthFromSurface > 10 && depthFromSurface < 80 {
@@ -178,7 +178,7 @@ func (sn *SimplexNoise) GenerateCaves(x, y float64, depthFromSurface int) bool {
 }
 
 // UndergroundStructures generates special underground rooms and features
-func (sn *SimplexNoise) GenerateUndergroundStructures(x, y float64, depthFromSurface int) int {
+func (sn *PerlinNoise) GenerateUndergroundStructures(x, y float64, depthFromSurface int) int {
 	// Only generate structures at certain depths
 	if depthFromSurface < 20 || depthFromSurface > 100 {
 		return 0 // No structure

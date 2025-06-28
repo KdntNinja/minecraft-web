@@ -3,6 +3,7 @@ package world
 import (
 	"github.com/KdntNinja/webcraft/internal/core/engine/block"
 	"github.com/KdntNinja/webcraft/internal/core/physics/entity"
+	"github.com/KdntNinja/webcraft/internal/core/settings"
 	"github.com/KdntNinja/webcraft/internal/gameplay/player"
 )
 
@@ -31,9 +32,9 @@ func NewWorld(numChunksY int, centerChunkX int) *World {
 		MinChunkY: 0,                // Start at Y=0
 	}
 	// Add player entity at center
-	centerChunkCol := len(blocks[0]) / 2                                 // Get center chunk column
-	centerBlockX := centerChunkCol*block.ChunkWidth + block.ChunkWidth/2 // Center of center chunk
-	px := float64(centerBlockX * block.TileSize)
+	centerChunkCol := len(blocks[0]) / 2                                       // Get center chunk column
+	centerBlockX := centerChunkCol*settings.ChunkWidth + settings.ChunkWidth/2 // Center of center chunk
+	px := float64(centerBlockX * settings.TileSize)
 
 	// Find the surface height at the center position
 	surfaceY := FindSurfaceHeight(centerBlockX, blocks)
@@ -46,7 +47,7 @@ func NewWorld(numChunksY int, centerChunkX int) *World {
 		spawnY = 0
 	}
 
-	py := float64(spawnY * block.TileSize)
+	py := float64(spawnY * settings.TileSize)
 	w.Entities = append(w.Entities, player.NewPlayer(px, py))
 	return w
 }
@@ -57,14 +58,14 @@ func (w *World) ToIntGrid() [][]int {
 		return [][]int{}
 	}
 
-	height := len(w.Blocks) * block.ChunkHeight
-	width := len(w.Blocks[0]) * block.ChunkWidth
+	height := len(w.Blocks) * settings.ChunkHeight
+	width := len(w.Blocks[0]) * settings.ChunkWidth
 	grid := make([][]int, height)
 
 	for y := 0; y < height; y++ {
 		grid[y] = make([]int, width)
-		cy := y / block.ChunkHeight
-		inChunkY := y % block.ChunkHeight
+		cy := y / settings.ChunkHeight
+		inChunkY := y % settings.ChunkHeight
 
 		// Bounds check for cy
 		if cy >= len(w.Blocks) {
@@ -72,8 +73,8 @@ func (w *World) ToIntGrid() [][]int {
 		}
 
 		for x := 0; x < width; x++ {
-			cx := x / block.ChunkWidth
-			inChunkX := x % block.ChunkWidth
+			cx := x / settings.ChunkWidth
+			inChunkX := x % settings.ChunkWidth
 
 			// Bounds check for cx
 			if cx >= len(w.Blocks[cy]) {

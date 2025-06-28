@@ -1,9 +1,8 @@
 package entity
 
 import (
+	"github.com/KdntNinja/webcraft/internal/core/settings"
 	"github.com/solarlune/resolv"
-
-	"github.com/KdntNinja/webcraft/internal/core/engine/block"
 )
 
 // PhysicsWorld manages the physics simulation using resolv
@@ -23,7 +22,7 @@ func NewPhysicsWorld(blocks [][]int) *PhysicsWorld {
 
 	height := len(blocks)
 	width := len(blocks[0])
-	tileSize := block.TileSize
+	tileSize := settings.TileSize
 
 	// Create space with cell size matching tile size for optimal performance
 	space := resolv.NewSpace(width*tileSize, height*tileSize, tileSize, tileSize)
@@ -37,7 +36,7 @@ func NewPhysicsWorld(blocks [][]int) *PhysicsWorld {
 // CollideBlocksAdvanced uses improved collision detection with sub-pixel precision
 func (a *AABB) CollideBlocksAdvanced(world *PhysicsWorld) {
 	blocks := world.Blocks
-	tileSize := float64(block.TileSize)
+	tileSize := float64(settings.TileSize)
 
 	// Move horizontally first with sub-stepping for better precision
 	if a.VX != 0 {
@@ -135,7 +134,7 @@ func (a *AABB) CollideBlocksAdvanced(world *PhysicsWorld) {
 		for x := int(a.X / tileSize); x <= int((a.X+float64(a.Width)-1)/tileSize); x++ {
 			if IsSolid(blocks, x, bottomEdge) {
 				// Check if we're close enough to the ground
-				groundY := float64(bottomEdge * block.TileSize)
+				groundY := float64(bottomEdge * settings.TileSize)
 				if bottomY >= groundY-2.0 && bottomY <= groundY+2.0 {
 					a.OnGround = true
 					break

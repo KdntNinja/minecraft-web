@@ -5,6 +5,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 
+	"github.com/KdntNinja/webcraft/internal/core/settings"
 	"github.com/KdntNinja/webcraft/internal/gameplay/player"
 	"github.com/KdntNinja/webcraft/internal/gameplay/world"
 	"github.com/KdntNinja/webcraft/internal/systems/rendering/render"
@@ -29,11 +30,11 @@ func NewGame() *Game {
 	}
 
 	// Pre-allocate player image to avoid recreating it every frame
-	g.playerImage = ebiten.NewImage(player.Width, player.Height)
+	g.playerImage = ebiten.NewImage(settings.PlayerWidth, settings.PlayerHeight)
 	g.playerImage.Fill(color.RGBA{255, 255, 0, 255}) // Yellow
 
 	// Create a simple world with fixed size
-	g.World = world.NewWorld(20, 0) // Create world with 20 chunks vertically
+	g.World = world.NewWorld(settings.ChunkHeight/2, 0) // Create world with N chunks vertically, using settings
 
 	return g
 }
@@ -60,8 +61,8 @@ func (g *Game) Update() error {
 	if g.frameCount%2 == 0 && len(g.World.Entities) > 0 {
 		if player, ok := g.World.Entities[0].(*player.Player); ok {
 			// Smooth camera following with some easing
-			targetCameraX := player.X + float64(player.Width)/2 - float64(g.LastScreenW)/2
-			targetCameraY := player.Y + float64(player.Height)/2 - float64(g.LastScreenH)/2
+			targetCameraX := player.X + float64(settings.PlayerWidth)/2 - float64(g.LastScreenW)/2
+			targetCameraY := player.Y + float64(settings.PlayerHeight)/2 - float64(g.LastScreenH)/2
 
 			// Smooth camera movement (lerp) - reduced for better performance
 			lerpFactor := 0.05
@@ -92,7 +93,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			px, py := int(p.X-g.CameraX), int(p.Y-g.CameraY)
 
 			// Only draw if player is visible on screen
-			if px > -player.Width && px < g.LastScreenW && py > -player.Height && py < g.LastScreenH {
+			if px > -settings.PlayerWidth && px < g.LastScreenW && py > -settings.PlayerHeight && py < g.LastScreenH {
 				var op ebiten.DrawImageOptions
 				op.GeoM.Translate(float64(px), float64(py))
 				screen.DrawImage(g.playerImage, &op)

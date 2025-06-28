@@ -1,5 +1,7 @@
 package block
 
+import "github.com/KdntNinja/webcraft/internal/core/settings"
+
 type BlockType int
 
 const (
@@ -42,11 +44,4 @@ const (
 	Lava
 )
 
-const (
-	TileSize    = 42  // Block size in pixels
-	TilesX      = 32  // Horizontal tiles visible on screen
-	ChunkWidth  = 16  // Blocks per chunk horizontally
-	ChunkHeight = 256 // Blocks per chunk vertically
-)
-
-type Chunk [ChunkHeight][ChunkWidth]BlockType
+type Chunk [settings.ChunkHeight][settings.ChunkWidth]BlockType

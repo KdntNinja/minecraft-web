@@ -1,6 +1,10 @@
 package player
 
-import "github.com/hajimehoshi/ebiten/v2"
+import (
+	"github.com/hajimehoshi/ebiten/v2"
+
+	"github.com/KdntNinja/webcraft/internal/core/settings"
+)
 
 // HandleInput processes keyboard input and returns movement intentions
 func (p *Player) HandleInput() (isMoving bool, targetVX float64, jumpKeyPressed bool) {
@@ -9,11 +13,11 @@ func (p *Player) HandleInput() (isMoving bool, targetVX float64, jumpKeyPressed 
 
 	// Check horizontal movement keys (WASD + arrows)
 	if ebiten.IsKeyPressed(ebiten.KeyLeft) || ebiten.IsKeyPressed(ebiten.KeyA) {
-		targetVX = -MoveSpeed
+		targetVX = -settings.PlayerMoveSpeed
 		isMoving = true
 	}
 	if ebiten.IsKeyPressed(ebiten.KeyRight) || ebiten.IsKeyPressed(ebiten.KeyD) {
-		targetVX = MoveSpeed
+		targetVX = settings.PlayerMoveSpeed
 		isMoving = true
 	}
 
