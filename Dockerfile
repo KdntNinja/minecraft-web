@@ -2,8 +2,11 @@
 FROM golang:1.24.3-alpine AS builder
 WORKDIR /app
 
-# Copy source code
-COPY . .
+# Copy source code (excluding wasm_exec.js)
+COPY go.mod go.sum ./
+COPY main.go ./
+COPY internal/ ./internal/
+COPY wasm/ ./wasm/
 
 # Make script executable and run it to get wasm_exec.js
 RUN chmod +x wasm/scripts/find_wasm_exec.sh && \
