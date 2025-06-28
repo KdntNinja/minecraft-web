@@ -28,7 +28,8 @@ func (a *AABB) CollideBlocks(blocks [][]int) {
 	if a.VX != 0 {
 		a.X += a.VX
 		if a.VX > 0 { // Moving right
-			rightEdge := int(math.Floor((a.X + float64(a.Width)) / float64(settings.TileSize)))
+			// Subtract 1px to avoid extending into the next tile when precisely aligned
+			rightEdge := int(math.Floor((a.X + float64(a.Width) - 1) / float64(settings.TileSize)))
 			for y := int(math.Floor(a.Y / float64(settings.TileSize))); y <= int(math.Floor((a.Y+float64(a.Height)-1)/float64(settings.TileSize))); y++ {
 				if IsSolid(blocks, rightEdge, y, offsetX, offsetY) {
 					a.X = float64(rightEdge*settings.TileSize - a.Width)

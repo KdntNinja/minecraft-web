@@ -319,9 +319,9 @@ func (w *World) PlaceBlock(blockX, blockY int, blockType block.BlockType) bool {
 		return false
 	}
 
-	// Check if any entity would collide with the new block
+	// Prevent placing a block inside any entity (including player)
 	if w.wouldBlockCollideWithEntity(blockX, blockY) {
-		return false // Cannot place block where an entity is present
+		return false
 	}
 
 	return w.SetBlockAt(blockX, blockY, blockType)
