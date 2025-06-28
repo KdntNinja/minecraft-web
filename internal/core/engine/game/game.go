@@ -1,10 +1,12 @@
 package game
 
 import (
+	"fmt"
 	"image/color"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 
 	"github.com/KdntNinja/webcraft/internal/core/settings"
 	"github.com/KdntNinja/webcraft/internal/gameplay/player"
@@ -26,16 +28,19 @@ type Game struct {
 	frameCount  int // For frame rate limiting
 
 	// Performance monitoring
-	fpsCounter    int     // Frame counter for FPS calculation
-	lastFPSUpdate float64 // Last time FPS was calculated
+	fpsCounter    int       // Frame counter for FPS calculation
+	lastFPSUpdate time.Time // Last time FPS was calculated
+	currentFPS    float64   // Current FPS value to display
 }
 
 func NewGame() *Game {
 	seed := time.Now().UnixNano() % 1000000
 	g := &Game{
-		LastScreenW: 800, // Default screen width
-		LastScreenH: 600, // Default screen height
-		Seed:        seed,
+		LastScreenW:   800, // Default screen width
+		LastScreenH:   600, // Default screen height
+		Seed:          seed,
+		lastFPSUpdate: time.Now(), // Initialize FPS tracking
+		currentFPS:    60.0,       // Default FPS value
 	}
 
 	// Always reset world generation with the new seed
@@ -66,6 +71,15 @@ func (g *Game) Update() error {
 	}
 
 	g.frameCount++
+	g.fpsCounter++
+
+	// Update FPS calculation every second
+	now := time.Now()
+	if now.Sub(g.lastFPSUpdate) >= time.Second {
+		g.currentFPS = float64(g.fpsCounter) / now.Sub(g.lastFPSUpdate).Seconds()
+		g.fpsCounter = 0
+		g.lastFPSUpdate = now
+	}
 
 	// Update only entities near the camera/screen - cached grid for better performance
 	var grid [][]int
@@ -157,6 +171,10 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			}
 		}
 	}
+
+	// Display FPS in the top left corner
+	fpsText := fmt.Sprintf("FPS: %.1f", g.currentFPS)
+	ebitenutil.DebugPrint(screen, fpsText)
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {

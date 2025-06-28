@@ -100,9 +100,9 @@ func getSurfaceBlockByID(biome int) block.BlockType {
 	}
 }
 
-// GenerateChunk creates a chunk with Terraria-like terrain layers
+// GenerateChunk creates a chunk with authentic Terraria-like terrain layers
 func GenerateChunk(chunkX, chunkY int) block.Chunk {
-	fmt.Printf("CHUNK_GEN: Generating chunk at (%d, %d)\n", chunkX, chunkY)
+	fmt.Printf("CHUNK_GEN: Generating Terraria-like chunk at (%d, %d)\n", chunkX, chunkY)
 	var chunk block.Chunk
 
 	chunkStartY := chunkY * settings.ChunkHeight
@@ -112,73 +112,124 @@ func GenerateChunk(chunkX, chunkY int) block.Chunk {
 	}
 	terrainNoise := noise.NewPerlinNoise(seed)
 
+	// World layer thresholds (Terraria-style)
+	surfaceLayer := 60     // Average surface height
+	caveBeltStart := 80    // Where caves become more common
+	deepLayer := 150       // Deep underground layer
+	underworldStart := 200 // Underworld begins
+	worldBottom := 240     // Bottom of the world
+
 	for y := 0; y < settings.ChunkHeight; y++ {
 		globalY := chunkStartY + y
 		for x := 0; x < settings.ChunkWidth; x++ {
 			globalX := chunkX*settings.ChunkWidth + x
 
-			// Add more noise for surface height and dirt thickness
-			surfaceBase := 36
-			surfaceNoise := terrainNoise.Noise1D(float64(globalX) * 0.015)
-			surfaceDetail := terrainNoise.Noise1D(float64(globalX)*0.07) * 2.5
-			surfaceHeight := surfaceBase + int(surfaceNoise*6+surfaceDetail)
+			// Get biome data for this position
+			biome := terrainNoise.GetBiomeAt(float64(globalX))
 
-			dirtBase := 6
-			dirtNoise := terrainNoise.Noise1D(float64(globalX)*0.09+1000) * 2.5
-			dirtThickness := dirtBase + int(dirtNoise)
-			if dirtThickness < 4 {
-				dirtThickness = 4
-			}
+			// Calculate dynamic surface height with extreme variation
+			baseSurface := float64(surfaceLayer)
+			biomeHeight := terrainNoise.GetBiomeTerrainHeight(float64(globalX), biome)
+			surfaceNoise := terrainNoise.FractalNoise1D(float64(globalX)*0.012, 3, 0.015, 1.0, 0.6)
+			detailNoise := terrainNoise.FractalNoise1D(float64(globalX)*0.045, 2, 0.04, 0.5, 0.5)
+
+			surfaceHeight := int(baseSurface + biomeHeight*25.0 + surfaceNoise*15.0 + detailNoise*8.0)
+
+			// Calculate depth from surface for this position
+			depthFromSurface := globalY - surfaceHeight
 
 			// --- BOUNDS CHECK: Prevent index out of range ---
 			if y < 0 || y >= settings.ChunkHeight {
 				continue
 			}
 
+			// Determine block based on depth and world layers
 			if globalY < surfaceHeight {
+				// Sky/Air layer
 				chunk[y][x] = block.Air
 			} else if globalY == surfaceHeight {
-				// Surface block: add some variety (grass, sand, clay, snow)
-				surfTypeNoise := terrainNoise.Noise1D(float64(globalX)*0.03 + 500)
-				if surfTypeNoise > 0.6 {
-					chunk[y][x] = block.Snow
-				} else if surfTypeNoise < -0.6 {
-					chunk[y][x] = block.Sand
-				} else if surfTypeNoise > 0.2 {
-					chunk[y][x] = block.Clay
-				} else {
-					chunk[y][x] = block.Grass
+				// Surface layer - biome-specific blocks
+				chunk[y][x] = getTerrariaStyleSurfaceBlock(biome, terrainNoise, globalX)
+
+				// Add trees based on biome
+				if shouldPlaceTree(globalX, biome) {
+					// Add tree trunk above surface (if within chunk bounds)
+					if y > 0 {
+						chunk[y-1][x] = block.Wood
+					}
+					if y > 1 {
+						chunk[y-2][x] = block.Leaves
+					}
 				}
-			} else if globalY <= surfaceHeight+dirtThickness {
-				// Dirt layer, with some clay and sand patches
-				dirtTypeNoise := terrainNoise.Noise2D(float64(globalX)*0.05, float64(globalY)*0.05)
-				if dirtTypeNoise > 0.7 {
-					chunk[y][x] = block.Clay
-				} else if dirtTypeNoise < -0.7 {
-					chunk[y][x] = block.Sand
-				} else {
+			} else if depthFromSurface <= 3 {
+				// Shallow soil layer (dirt/sand based on biome)
+				chunk[y][x] = getTerrariaStyleSoilBlock(biome, terrainNoise, globalX, globalY)
+			} else if depthFromSurface <= 15 {
+				// Dirt-to-stone transition layer with variety
+				transitionNoise := terrainNoise.FractalNoise2D(float64(globalX)*0.08, float64(globalY)*0.08, 2, 0.1, 1.0, 0.5)
+				if transitionNoise > 0.3 {
+					chunk[y][x] = block.Stone
+				} else if transitionNoise > -0.2 {
 					chunk[y][x] = block.Dirt
+				} else {
+					chunk[y][x] = getTerrariaStyleSoilBlock(biome, terrainNoise, globalX, globalY)
 				}
-			} else if globalY < settings.ChunkHeight*chunkY+settings.ChunkHeight-16 {
-				// Stone layer, with caves and ores
-				caveNoise := terrainNoise.Noise2D(float64(globalX)*settings.CaveFrequency, float64(globalY)*settings.CaveFrequency)
-				if caveNoise > settings.CaveThreshold+0.05 { // Slightly higher than base threshold
+			} else if globalY < caveBeltStart || depthFromSurface < 20 {
+				// Early stone layer with minimal caves
+				if shouldGenerateTerrariaStyleCave(globalX, globalY, depthFromSurface, terrainNoise, 0.7) {
 					chunk[y][x] = block.Air
 				} else {
-					oreNoise := terrainNoise.Noise2D(float64(globalX)*0.13, float64(globalY)*0.13)
-					if oreNoise > 0.82 {
-						chunk[y][x] = block.IronOre
-					} else if oreNoise < -0.82 {
-						chunk[y][x] = block.CopperOre
+					// Check for shallow ores
+					if ore := generateTerrariaStyleOre(globalX, globalY, depthFromSurface, biome, terrainNoise); ore != block.Air {
+						chunk[y][x] = ore
 					} else {
 						chunk[y][x] = block.Stone
 					}
 				}
-			} else if globalY < settings.ChunkHeight*chunkY+settings.ChunkHeight-4 {
-				// Underworld transition (ash)
-				chunk[y][x] = block.Ash
+			} else if globalY < deepLayer {
+				// Cave belt - lots of caves and tunnels (like Terraria's main cave layer)
+				if shouldGenerateTerrariaStyleCave(globalX, globalY, depthFromSurface, terrainNoise, 0.5) {
+					chunk[y][x] = block.Air
+				} else {
+					// Stone with good ore distribution
+					if ore := generateTerrariaStyleOre(globalX, globalY, depthFromSurface, biome, terrainNoise); ore != block.Air {
+						chunk[y][x] = ore
+					} else {
+						chunk[y][x] = block.Stone
+					}
+				}
+			} else if globalY < underworldStart {
+				// Deep underground - denser stone, rare caves, precious ores
+				if shouldGenerateTerrariaStyleCave(globalX, globalY, depthFromSurface, terrainNoise, 0.8) {
+					chunk[y][x] = block.Air
+				} else {
+					// Check for deep ores first
+					if ore := generateTerrariaStyleOre(globalX, globalY, depthFromSurface, biome, terrainNoise); ore != block.Air {
+						chunk[y][x] = ore
+					} else {
+						// Mostly stone with some variety
+						stoneVariation := terrainNoise.FractalNoise2D(float64(globalX)*0.03, float64(globalY)*0.03, 2, 0.04, 1.0, 0.5)
+						if stoneVariation > 0.6 {
+							chunk[y][x] = block.Clay // Clay pockets
+						} else {
+							chunk[y][x] = block.Stone
+						}
+					}
+				}
+			} else if globalY < worldBottom-8 {
+				// Underworld layer - ash with hellstone veins
+				underworldNoise := terrainNoise.FractalNoise2D(float64(globalX)*0.06, float64(globalY)*0.06, 3, 0.08, 1.0, 0.6)
+				hellstoneVeins := terrainNoise.RidgedNoise2D(float64(globalX)*0.15, float64(globalY)*0.12, 2, 0.1, 1.0)
+
+				if hellstoneVeins > 0.4 {
+					chunk[y][x] = block.Hellstone
+				} else if underworldNoise > 0.3 {
+					chunk[y][x] = block.Ash
+				} else {
+					chunk[y][x] = block.Stone
+				}
 			} else {
-				// Very bottom: hellstone
+				// Bottom bedrock layer - solid hellstone
 				chunk[y][x] = block.Hellstone
 			}
 		}
@@ -511,4 +562,167 @@ func GetBiomeTerrainHeight(noise *noise.PerlinNoise, x float64, biome int) float
 	default:
 		return base * 1.5
 	}
+}
+
+// Terraria-style helper functions
+
+// getTerrariaStyleSurfaceBlock returns biome-appropriate surface blocks
+func getTerrariaStyleSurfaceBlock(biome noise.BiomeData, terrainNoise *noise.PerlinNoise, globalX int) block.BlockType {
+	// Add some surface variation within biomes
+	surfaceVariation := terrainNoise.Noise1D(float64(globalX)*0.03 + 500)
+
+	switch biome.Type {
+	case 0: // PlainseBiome
+		if surfaceVariation > 0.7 {
+			return block.Dirt // Exposed dirt patches
+		}
+		return block.Grass
+	case 1: // ForestBiome
+		return block.Grass
+	case 2: // DesertBiome
+		return block.Sand
+	case 3: // MountainBiome
+		if biome.Temperature < -0.2 {
+			return block.Snow
+		} else if biome.Elevation > 0.5 || surfaceVariation > 0.4 {
+			return block.Stone // Rocky mountain peaks
+		}
+		return block.Grass
+	case 4: // SwampBiome
+		if surfaceVariation > 0.3 {
+			return block.Mud
+		}
+		return block.Grass
+	case 5: // TundraBiome
+		return block.Snow
+	case 6: // JungleBiome
+		if surfaceVariation > 0.6 {
+			return block.Mud // Jungle mud patches
+		}
+		return block.Grass
+	case 7: // OceanBiome
+		return block.Sand
+	default:
+		return block.Grass
+	}
+}
+
+// getTerrariaStyleSoilBlock returns biome-appropriate soil blocks
+func getTerrariaStyleSoilBlock(biome noise.BiomeData, terrainNoise *noise.PerlinNoise, globalX, globalY int) block.BlockType {
+	soilNoise := terrainNoise.FractalNoise2D(float64(globalX)*0.05, float64(globalY)*0.05, 2, 0.08, 1.0, 0.5)
+
+	switch biome.Type {
+	case 2: // DesertBiome
+		if soilNoise > 0.6 {
+			return block.Clay // Hardpan clay layers
+		}
+		return block.Sand
+	case 4: // SwampBiome
+		if soilNoise > 0.2 {
+			return block.Mud
+		}
+		return block.Dirt
+	case 5: // TundraBiome
+		if soilNoise > 0.5 {
+			return block.Clay // Frozen clay
+		}
+		return block.Dirt
+	default:
+		if soilNoise > 0.7 {
+			return block.Clay
+		}
+		return block.Dirt
+	}
+}
+
+// shouldGenerateTerrariaStyleCave creates Terraria-like cave systems
+func shouldGenerateTerrariaStyleCave(globalX, globalY, depthFromSurface int, terrainNoise *noise.PerlinNoise, difficulty float64) bool {
+	if depthFromSurface < 8 {
+		return false // No caves too close to surface
+	}
+
+	x, y := float64(globalX), float64(globalY)
+
+	// Large cavern systems (like Terraria's big open areas)
+	largeCaverns := terrainNoise.FractalNoise2D(x*0.012, y*0.015, 3, 0.025, 1.2, 0.6)
+
+	// Winding tunnels (like Terraria's connecting passages)
+	tunnels := terrainNoise.FractalNoise2D(x*0.03, y*0.025, 2, 0.04, 0.8, 0.5)
+	tunnelWarp := terrainNoise.Noise2D(x*0.008, y*0.01) * 15.0
+	warpedTunnels := terrainNoise.Noise2D(x+tunnelWarp, y*0.8) * 0.6
+
+	// Vertical shafts (occasional deep connections)
+	verticalShafts := terrainNoise.FractalNoise2D(x*0.005, y*0.08, 2, 0.02, 1.0, 0.4)
+
+	// Depth-based cave probability (more caves deeper down)
+	depthFactor := math.Min(float64(depthFromSurface)/40.0, 1.0)
+
+	// Combine cave types
+	totalCaveNoise := (largeCaverns*0.8 + tunnels*0.5 + warpedTunnels*0.7 + verticalShafts*0.5) * depthFactor
+
+	// Adjust threshold based on difficulty (higher = fewer caves)
+	threshold := 0.45 + (difficulty-0.5)*0.3
+
+	return totalCaveNoise > threshold
+}
+
+// generateTerrariaStyleOre creates Terraria-like ore distribution
+func generateTerrariaStyleOre(globalX, globalY, depthFromSurface int, biome noise.BiomeData, terrainNoise *noise.PerlinNoise) block.BlockType {
+	x, y := float64(globalX), float64(globalY)
+
+	// Biome-based ore probability modifiers
+	biomeOreMultiplier := 1.0
+	switch biome.Type {
+	case 3: // MountainBiome - richer in ores
+		biomeOreMultiplier = 1.5
+	case 2: // DesertBiome - fewer ores
+		biomeOreMultiplier = 0.7
+	case 4: // SwampBiome - limited ores
+		biomeOreMultiplier = 0.8
+	case 6: // JungleBiome - different ore distribution
+		biomeOreMultiplier = 1.2
+	}
+
+	// Terraria-like depth-based ore layers
+	if depthFromSurface >= 8 && depthFromSurface < 25 {
+		// Shallow layer: Copper and some Iron
+		copperNoise := terrainNoise.FractalNoise2D(x*0.09, y*0.08, 3, 0.12, 1.0, 0.6) * biomeOreMultiplier
+		ironNoise := terrainNoise.FractalNoise2D(x*0.07+100, y*0.07, 2, 0.08, 0.8, 0.5) * biomeOreMultiplier
+
+		if copperNoise > 0.78 {
+			return block.CopperOre
+		}
+		if ironNoise > 0.85 && depthFromSurface > 15 {
+			return block.IronOre
+		}
+	} else if depthFromSurface >= 25 && depthFromSurface < 60 {
+		// Medium depth: Iron and Gold
+		ironNoise := terrainNoise.FractalNoise2D(x*0.06+200, y*0.06, 3, 0.07, 1.0, 0.5) * biomeOreMultiplier
+		goldNoise := terrainNoise.FractalNoise2D(x*0.05+300, y*0.05, 4, 0.05, 1.2, 0.4) * biomeOreMultiplier
+
+		if goldNoise > 0.90 {
+			return block.GoldOre
+		}
+		if ironNoise > 0.80 {
+			return block.IronOre
+		}
+		// Still some copper at this depth but rarer
+		copperNoise := terrainNoise.FractalNoise2D(x*0.08+400, y*0.08, 2, 0.1, 0.6, 0.6) * biomeOreMultiplier
+		if copperNoise > 0.88 {
+			return block.CopperOre
+		}
+	} else if depthFromSurface >= 60 {
+		// Deep layer: Mostly Gold with rare other ores
+		goldNoise := terrainNoise.FractalNoise2D(x*0.04+500, y*0.04, 4, 0.04, 1.3, 0.3) * biomeOreMultiplier
+		deepIronNoise := terrainNoise.FractalNoise2D(x*0.06+600, y*0.06, 3, 0.06, 1.0, 0.4) * biomeOreMultiplier
+
+		if goldNoise > 0.87 {
+			return block.GoldOre
+		}
+		if deepIronNoise > 0.85 {
+			return block.IronOre
+		}
+	}
+
+	return block.Air // No ore
 }

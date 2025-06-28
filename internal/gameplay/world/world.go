@@ -77,47 +77,33 @@ func NewWorld(seed int64) *World {
 	}
 	fmt.Printf("\n")
 
-	// Add player entity at center of the world (chunk 0)
-	playerChunkX := 0 // Always spawn at the center chunk
+	// Add player entity at pixel (0, 0) in world coordinates
+	fmt.Printf("DEBUG: Player spawning at pixel (0, 0)\n")
 
-	fmt.Printf("DEBUG: Player spawning in chunk X=%d\n", playerChunkX)
+	// Spawn player at pixel (0, 0), which corresponds to block (0, 0)
+	spawnBlockX := 0
+	spawnBlockY := 0
 
-	// Place player at the center of their spawn chunk
-	centerBlockX := playerChunkX*settings.ChunkWidth + settings.ChunkWidth/2
-	px := float64(centerBlockX * settings.TileSize)
+	// Find the surface height at block X=0 to determine proper Y spawn
+	surfaceY := FindSurfaceHeight(spawnBlockX, w)
+	fmt.Printf("DEBUG: Surface height at X=%d is Y=%d\n", spawnBlockX, surfaceY)
 
-	fmt.Printf("DEBUG: Initial spawn block X=%d, pixel X=%f\n", centerBlockX, px)
-
-	// Find the surface height at the center position - try multiple points for best spawn
-	bestSpawnX := centerBlockX
-	bestSpawnY := 1000
-
-	// Sample multiple positions around center to find the best spawn point
-	for testX := centerBlockX - 4; testX <= centerBlockX+4; testX++ {
-		testSurfaceY := FindSurfaceHeight(testX, w)
-		fmt.Printf("DEBUG: Surface height at X=%d is Y=%d\n", testX, testSurfaceY)
-		if testSurfaceY < bestSpawnY && testSurfaceY > 10 { // Avoid spawning too high or underground
-			bestSpawnY = testSurfaceY
-			bestSpawnX = testX
-		}
-	}
-
-	// Use the best spawn position found
-	px = float64(bestSpawnX * settings.TileSize)
-	spawnY := bestSpawnY - 3 // Spawn 3 blocks above surface for safety
-
-	fmt.Printf("DEBUG: Best spawn found at block X=%d, Y=%d\n", bestSpawnX, spawnY)
+	// Spawn player 3 blocks above surface for safety
+	spawnBlockY = surfaceY - 3
 
 	// Ensure spawn position is reasonable
-	if spawnY < 5 {
-		spawnY = 5
+	if spawnBlockY < 5 {
+		spawnBlockY = 5
 	}
-	if spawnY > 200 {
-		spawnY = 200
+	if spawnBlockY > 200 {
+		spawnBlockY = 200
 	}
 
-	py := float64(spawnY * settings.TileSize)
-	fmt.Printf("DEBUG: Final player spawn at pixel position (%f, %f)\n", px, py)
+	// Convert to pixel coordinates - spawn at exact pixel (0, 0) for X, calculated Y
+	px := 0.0
+	py := float64(spawnBlockY * settings.TileSize)
+
+	fmt.Printf("DEBUG: Final player spawn at pixel position (%f, %f), block position (%d, %d)\n", px, py, spawnBlockX, spawnBlockY)
 
 	w.Entities = append(w.Entities, player.NewPlayer(px, py))
 	return w

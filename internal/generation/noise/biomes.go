@@ -105,21 +105,65 @@ func (sn *PerlinNoise) GetBiomeAt(x float64) BiomeData {
 	}
 }
 
-// GetBiomeTerrainHeight returns terrain height modified by biome characteristics (optimized for WASM)
+// GetBiomeTerrainHeight returns Terraria-style terrain height modified by biome characteristics
 func (sn *PerlinNoise) GetBiomeTerrainHeight(x float64, biome BiomeData) float64 {
-	baseHeight := sn.TerrainNoise(x)
+	baseNoise := sn.FractalNoise1D(x*0.01, 2, 0.015, 1.0, 0.6)
 
 	switch biome.Type {
 	case MountainBiome:
-		mountainHeight := sn.TerrainNoise(x)
-		return baseHeight*0.3 + mountainHeight*0.7 + biome.Elevation*0.4
+		// Extremely tall and dramatic mountains with sharp peaks
+		mountains := sn.FractalNoise1D(x*0.008, 3, 0.012, 2.0, 0.5)
+		peaks := sn.RidgedNoise1D(x*0.02, 2, 0.025, 1.5)
+		plateaus := sn.FractalNoise1D(x*0.005, 2, 0.008, 1.2, 0.7)
+		return baseNoise*0.4 + mountains*1.8 + peaks*1.2 + plateaus*0.8
+
 	case PlainseBiome:
-		// Jungle has varied terrain with steep hills
-		return baseHeight + biome.Elevation*0.2
+		// Gentle rolling hills with occasional dramatic rises
+		hills := sn.FractalNoise1D(x*0.015, 2, 0.018, 1.0, 0.6)
+		rolling := sn.FractalNoise1D(x*0.04, 1, 0.045, 0.6, 0.5)
+		return baseNoise*0.5 + hills*0.8 + rolling*0.4
+
+	case DesertBiome:
+		// Sharp mesas, deep valleys, and towering dunes
+		mesas := sn.RidgedNoise1D(x*0.012, 2, 0.015, 1.3)
+		dunes := sn.FractalNoise1D(x*0.025, 3, 0.03, 1.0, 0.6)
+		canyons := sn.FractalNoise1D(x*0.006, 2, 0.008, 1.5, 0.5)
+		return baseNoise*0.3 + mesas*1.5 + dunes*0.9 + canyons*1.2
+
+	case ForestBiome:
+		// Varied mountainous forest terrain with deep valleys
+		forestHills := sn.FractalNoise1D(x*0.012, 3, 0.015, 1.2, 0.6)
+		valleys := sn.FractalNoise1D(x*0.008, 2, 0.01, 1.0, 0.7)
+		ridges := sn.FractalNoise1D(x*0.03, 2, 0.035, 0.8, 0.5)
+		return baseNoise*0.4 + forestHills*1.3 + valleys*1.0 + ridges*0.6
+
+	case SwampBiome:
+		// Low-lying with occasional hills and deep marshes
+		marshes := sn.FractalNoise1D(x*0.02, 2, 0.025, 0.4, 0.6)
+		lowHills := sn.FractalNoise1D(x*0.015, 1, 0.018, 0.6, 0.5)
+		return baseNoise*0.2 + marshes*0.3 + lowHills*0.4 - 0.6 // Generally lower elevation
+
+	case TundraBiome:
+		// Jagged frozen terrain with dramatic ice formations
+		frozenPeaks := sn.FractalNoise1D(x*0.015, 3, 0.018, 1.4, 0.5)
+		iceCaps := sn.RidgedNoise1D(x*0.025, 2, 0.03, 1.0)
+		glacialValleys := sn.FractalNoise1D(x*0.008, 2, 0.01, 1.1, 0.7)
+		return baseNoise*0.3 + frozenPeaks*1.4 + iceCaps*0.9 + glacialValleys*1.0
+
+	case JungleBiome:
+		// Dense, varied terrain with deep ravines and towering canopy areas
+		jungleHills := sn.FractalNoise1D(x*0.014, 3, 0.017, 1.5, 0.6)
+		ravines := sn.FractalNoise1D(x*0.009, 2, 0.011, 1.2, 0.7)
+		canopyRidges := sn.RidgedNoise1D(x*0.02, 2, 0.025, 0.8)
+		return baseNoise*0.4 + jungleHills*1.6 + ravines*1.1 + canopyRidges*0.7
+
 	case OceanBiome:
-		// Ocean floor variation
-		return baseHeight*0.5 + biome.Elevation*0.2
+		// Underwater terrain with deep trenches and seamounts
+		seafloor := sn.FractalNoise1D(x*0.02, 2, 0.025, 0.8, 0.6)
+		trenches := sn.FractalNoise1D(x*0.008, 2, 0.01, 1.0, 0.7)
+		return baseNoise*0.2 + seafloor*0.4 + trenches*0.6 - 1.5 // Deep underwater
+
 	default:
-		return baseHeight + biome.Elevation*0.2
+		return baseNoise * 1.0
 	}
 }
