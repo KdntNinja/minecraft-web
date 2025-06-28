@@ -6,6 +6,7 @@ import (
 
 	"github.com/KdntNinja/webcraft/internal/core/engine/block"
 	"github.com/KdntNinja/webcraft/internal/core/settings"
+	"github.com/KdntNinja/webcraft/internal/generation/trees"
 )
 
 // GetWorldSeedFunc is set by the init function to avoid import cycles
@@ -60,12 +61,22 @@ func GenerateChunk(chunkX, chunkY int) block.Chunk {
 			} else {
 				// Underground - check for caves first
 				if IsCave(worldX, worldY) {
-					// Check if cave should have liquid pools
-					liquidType := IsLiquid(worldX, worldY)
-					if liquidType > 0 {
-						blockType = block.Water // Use water for any liquid type for now
+					// Check for large caverns
+					if IsLargeCavern(worldX, worldY) {
+						// Large caverns might have water at the bottom
+						if GetCaveWaterLevel(worldX, worldY) {
+							blockType = block.Water
+						} else {
+							blockType = block.Air
+						}
 					} else {
-						blockType = block.Air
+						// Regular caves - check for liquid pools
+						liquidType := IsLiquid(worldX, worldY)
+						if liquidType > 0 {
+							blockType = block.Water // Use water for any liquid type for now
+						} else {
+							blockType = block.Air
+						}
 					}
 				} else {
 					// Determine underground block type
@@ -90,7 +101,7 @@ func GenerateChunk(chunkX, chunkY int) block.Chunk {
 			rng.Float64() < settings.TreeChance &&
 			x > 0 && x < settings.ChunkWidth-1 {
 
-			GenerateTreeAtPosition(&chunk, x, surfaceChunkY, rng)
+			trees.GenerateTreeAtPosition(&chunk, x, surfaceChunkY, rng)
 		}
 	}
 

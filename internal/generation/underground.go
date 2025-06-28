@@ -12,18 +12,28 @@ func GetUndergroundBlock(worldX, worldY, surfaceHeight int, rng *rand.Rand) bloc
 	depthFromSurface := worldY - surfaceHeight
 	terrainNoise := GetTerrainNoise()
 
-	// Check for ore veins first
+	// Check for ore veins with enhanced vein generation
 	oreType := GetOreType(worldX, worldY)
-	if oreType > 0 && rng.Float64() < settings.OreVeinChance {
-		switch oreType {
-		case 1:
-			return block.CopperOre
-		case 2:
-			return block.IronOre
-		case 3:
-			return block.GoldOre
-		default:
-			return block.Stone
+	if oreType > 0 {
+		// Base ore chance from settings
+		oreChance := settings.OreVeinChance
+
+		// Check if this position extends an existing ore vein (makes ores cluster)
+		if IsOreVeinExtension(worldX, worldY, oreType) {
+			oreChance *= 3.0 // Much more likely to place ore near other ore
+		}
+
+		if rng.Float64() < oreChance {
+			switch oreType {
+			case 1:
+				return block.CopperOre
+			case 2:
+				return block.IronOre
+			case 3:
+				return block.GoldOre
+			default:
+				return block.Stone
+			}
 		}
 	}
 
