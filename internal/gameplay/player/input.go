@@ -77,11 +77,6 @@ func (p *Player) HandleInput(cameraX, cameraY float64) (isMoving bool, targetVX 
 				interactionType = PlaceBlock
 			}
 
-			// --- Use CanBreakBlock for break logic and UI ---
-			if interactionType == BreakBlock && !p.CanBreakBlock(blockX, blockY) {
-				return isMoving, targetVX, jumpKeyPressed, nil
-			}
-
 			// Reset cooldown timer
 			p.LastInteractionTime = 0
 
@@ -128,54 +123,4 @@ func (p *Player) handleBlockSelection() {
 	} else if inpututil.IsKeyJustPressed(ebiten.Key0) {
 		p.SelectedBlock = block.Leaves
 	}
-}
-
-// Add a helper to check if a block is breakable from the player's perspective
-func (p *Player) CanBreakBlock(blockX, blockY int) bool {
-	playerCenterX := int((p.AABB.X + float64(p.AABB.Width)/2) / float64(settings.TileSize))
-	playerCenterY := int((p.AABB.Y + float64(p.AABB.Height)/2) / float64(settings.TileSize))
-
-	x0, y0 := playerCenterX, playerCenterY
-	x1, y1 := blockX, blockY
-	dx := absInt(x1 - x0)
-	dy := absInt(y1 - y0)
-	sx := 1
-	if x0 > x1 {
-		sx = -1
-	}
-	sy := 1
-	if y0 > y1 {
-		sy = -1
-	}
-	err := dx - dy
-
-	x, y := x0, y0
-	for {
-		if !(x == x0 && y == y0) && !(x == x1 && y == y1) {
-			if p.World != nil {
-				if p.World.GetBlockAt(x, y) != block.Air {
-					return false
-				}
-				// If moving diagonally, check both adjacent cells to prevent corner breaking
-				if x != x0 && y != y0 {
-					if p.World.GetBlockAt(x, y0) != block.Air || p.World.GetBlockAt(x0, y) != block.Air {
-						return false
-					}
-				}
-			}
-		}
-		if x == x1 && y == y1 {
-			break
-		}
-		err2 := 2 * err
-		if err2 > -dy {
-			err -= dy
-			x += sx
-		}
-		if err2 < dx {
-			err += dx
-			y += sy
-		}
-	}
-	return true
 }

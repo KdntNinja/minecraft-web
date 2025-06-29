@@ -282,17 +282,6 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 
 // handleBlockInteraction processes block interaction events from the player
 func (g *Game) handleBlockInteraction(p *player.Player, interaction *player.BlockInteraction) {
-	inRange := func() bool {
-		playerCenterX := p.X + float64(settings.PlayerWidth)/2
-		playerCenterY := p.Y + float64(settings.PlayerHeight)/2
-		dx := float64(interaction.BlockX*settings.TileSize) + float64(settings.TileSize)/2 - playerCenterX
-		dy := float64(interaction.BlockY*settings.TileSize) + float64(settings.TileSize)/2 - playerCenterY
-		return dx*dx+dy*dy <= p.InteractionRange*p.InteractionRange
-	}
-	canBreak := p.CanBreakBlock(interaction.BlockX, interaction.BlockY)
-	if !inRange() || !canBreak {
-		return // Out of range or not breakable, do nothing
-	}
 	switch interaction.Type {
 	case player.BreakBlock:
 		g.World.BreakBlock(interaction.BlockX, interaction.BlockY)
