@@ -60,7 +60,9 @@ type Game struct {
 	prevF3Pressed bool // Track previous F3 key state for toggle
 
 	// Debug graph
-	fpsHistory []float64 // For FPS graph in debug overlay
+	fpsHistory    []float64 // For FPS graph in debug overlay
+	fpsHistoryMin float64   // Track min FPS seen for relative graph
+	fpsHistoryMax float64   // Track max FPS seen for relative graph
 }
 
 func NewGame() *Game {
