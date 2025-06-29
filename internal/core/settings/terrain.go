@@ -21,3 +21,10 @@ const (
 	TreeClayBiomeThresh = 0.45 // Threshold for clay biome
 	TreeClayNoiseThresh = 0.5  // Threshold for clay noise
 )
+
+// --- Terraria-like Sky Transition Constants ---
+const (
+	SkyTopY             = -100.0 // Y above this is always sky blue
+	SkyTransitionStartY = -50.0  // Start fading here
+	SkyTransitionEndY   = 150.0  // Fully dark here
+)

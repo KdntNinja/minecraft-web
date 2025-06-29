@@ -11,7 +11,7 @@ const (
 	ChunkHeight       = 256 // Chunk height in blocks
 	WorldChunksY      = 20  // Number of chunks vertically in the world
 	WorldChunksX      = 25  // Number of chunks horizontally in the world
-	TileSize          = 42  // Tile size in pixels
+	TileSize          = 30  // Tile size in pixels
 	DefaultSeed       = 42  // Default world generation seed
 	ChunkViewDistance = 3   // Chunks to keep loaded around the player
 )

@@ -87,9 +87,13 @@ func (cm *ChunkManager) UpdatePlayerPosition(playerX, playerY float64) {
 	}
 }
 
+// Load up to N chunks per frame to reduce stutter
+const MaxChunksPerFrame = 2
+
 // loadChunksAroundPlayer loads chunks within view distance of the player (no bias, true square)
 func (cm *ChunkManager) loadChunksAroundPlayer(playerChunkX, playerChunkY int) {
 	loadCount := 0
+	chunksToLoad := []ChunkCoord{}
 
 	for dx := -cm.viewDistance; dx <= cm.viewDistance; dx++ {
 		for dy := -cm.viewDistance; dy <= cm.viewDistance; dy++ {
@@ -103,15 +107,20 @@ func (cm *ChunkManager) loadChunksAroundPlayer(playerChunkX, playerChunkY int) {
 			cm.mutex.RUnlock()
 
 			if !exists {
-				// Generate chunk asynchronously for better performance
-				go cm.GetChunk(chunkX, chunkY)
-				loadCount++
+				chunksToLoad = append(chunksToLoad, coord)
 			}
 		}
 	}
 
+	// Only load up to MaxChunksPerFrame per call to reduce stutter
+	for i := 0; i < len(chunksToLoad) && i < MaxChunksPerFrame; i++ {
+		coord := chunksToLoad[i]
+		go cm.GetChunk(coord.X, coord.Y)
+		loadCount++
+	}
+
 	if loadCount > 0 {
-		fmt.Printf("CHUNK_MANAGER: Loading %d new chunks around player\n", loadCount)
+		fmt.Printf("CHUNK_MANAGER: Loading %d new chunks around player (limited per frame)\n", loadCount)
 	}
 }
 

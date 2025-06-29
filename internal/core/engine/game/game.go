@@ -54,6 +54,13 @@ type Game struct {
 	physicsGrid    [][]int              // Cached grid used to build physicsWorld
 	physicsOffsetX int
 	physicsOffsetY int
+
+	// Debug
+	ShowDebug     bool // Show debug screen when F3 is pressed
+	prevF3Pressed bool // Track previous F3 key state for toggle
+
+	// Debug graph
+	fpsHistory []float64 // For FPS graph in debug overlay
 }
 
 func NewGame() *Game {
@@ -72,7 +79,6 @@ func NewGame() *Game {
 
 	seed := globalSeed
 	progress.UpdateCurrentStepProgress(1, fmt.Sprintf("Using random world seed: %d", seed))
-	time.Sleep(100 * time.Millisecond) // Small delay to make progress visible
 
 	g := &Game{
 		LastScreenW:   800, // Default screen width
@@ -85,18 +91,15 @@ func NewGame() *Game {
 	// Hide the cursor for better gameplay experience
 	ebiten.SetCursorMode(ebiten.CursorModeHidden)
 	progress.UpdateCurrentStepProgress(2, "Set up game configuration")
-	time.Sleep(100 * time.Millisecond)
 
 	// Always reset world generation with the new seed
 	generation.ResetWorldGeneration(seed)
 	progress.UpdateCurrentStepProgress(3, "Reset generation systems")
-	time.Sleep(100 * time.Millisecond)
 
 	// Pre-allocate player image to avoid recreating it every frame
 	g.playerImage = ebiten.NewImage(settings.PlayerWidth, settings.PlayerHeight)
 	g.playerImage.Fill(color.RGBA{255, 255, 0, 255}) // Yellow
 	progress.UpdateCurrentStepProgress(4, "Created player graphics")
-	time.Sleep(100 * time.Millisecond)
 
 	// Complete initialization step
 	progress.CompleteCurrentStep()
@@ -121,6 +124,13 @@ func (g *Game) Update() error {
 	if g.World == nil {
 		return nil
 	}
+
+	// --- F3 debug toggle (edge-triggered) ---
+	f3Pressed := ebiten.IsKeyPressed(ebiten.KeyF3)
+	if f3Pressed && !g.prevF3Pressed {
+		g.ShowDebug = !g.ShowDebug
+	}
+	g.prevF3Pressed = f3Pressed
 
 	g.frameCount++
 	g.fpsCounter++
@@ -218,8 +228,32 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		return
 	}
 
-	// Clear screen with black background
-	screen.Fill(color.RGBA{0, 0, 0, 255}) // Black
+	// --- Terraria-like sky color based on player Y position ---
+	// Get player Y (if available), else use camera Y
+	playerY := g.CameraY
+	if len(g.World.Entities) > 0 {
+		if player, ok := g.World.Entities[0].(*player.Player); ok {
+			playerY = player.Y
+		}
+	}
+	// Use settings for sky transition
+	skyColor := color.RGBA{135, 206, 235, 255}      // Terraria-like sky blue
+	undergroundColor := color.RGBA{10, 10, 30, 255} // Deep blue/black
+
+	var bgColor color.RGBA
+	if playerY <= settings.SkyTransitionStartY {
+		bgColor = skyColor
+	} else if playerY >= settings.SkyTransitionEndY {
+		bgColor = undergroundColor
+	} else {
+		t := (playerY - settings.SkyTransitionStartY) / (settings.SkyTransitionEndY - settings.SkyTransitionStartY)
+		bgR := uint8(float64(skyColor.R)*(1-t) + float64(undergroundColor.R)*t)
+		bgG := uint8(float64(skyColor.G)*(1-t) + float64(undergroundColor.G)*t)
+		bgB := uint8(float64(skyColor.B)*(1-t) + float64(undergroundColor.B)*t)
+		bgColor = color.RGBA{bgR, bgG, bgB, 255}
+	}
+
+	screen.Fill(bgColor)
 
 	// Render world directly to screen (avoid intermediate image allocation)
 	rendering.DrawWithCamera(g.World.GetChunksForRendering(), screen, g.CameraX, g.CameraY)
@@ -256,6 +290,12 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	// Draw crosshair/target indicator
 	g.drawCrosshair(screen)
 
+	// --- F3 debug screen ---
+	if g.ShowDebug {
+		g.drawDebugInfo(screen)
+		return // Hide all other UI except debug overlay
+	}
+
 	// Display FPS in the top left corner
 	fpsText := fmt.Sprintf("FPS: %.1f", g.currentFPS)
 	ebitenutil.DebugPrint(screen, fpsText)
@@ -271,147 +311,5 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		}
 	} else {
 		ebitenutil.DebugPrint(screen, fpsText)
-	}
-}
-
-func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
-	g.LastScreenW = outsideWidth
-	g.LastScreenH = outsideHeight
-	return outsideWidth, outsideHeight
-}
-
-// handleBlockInteraction processes block interaction events from the player
-func (g *Game) handleBlockInteraction(p *player.Player, interaction *player.BlockInteraction) {
-	switch interaction.Type {
-	case player.BreakBlock:
-		g.World.BreakBlock(interaction.BlockX, interaction.BlockY)
-	case player.PlaceBlock:
-		g.World.PlaceBlock(interaction.BlockX, interaction.BlockY, p.SelectedBlock)
-	}
-}
-
-// drawCrosshair draws a targeting reticle and highlights the block under the cursor
-func (g *Game) drawCrosshair(screen *ebiten.Image) {
-	if len(g.World.Entities) == 0 {
-		return
-	}
-
-	player, ok := g.World.Entities[0].(*player.Player)
-	if !ok {
-		return
-	}
-
-	mouseX, mouseY := ebiten.CursorPosition()
-
-	// Convert screen coordinates to world coordinates
-	worldX := float64(mouseX) + g.CameraX
-	worldY := float64(mouseY) + g.CameraY
-
-	// Convert to block coordinates
-	blockX := int(worldX / float64(settings.TileSize))
-	blockY := int(worldY / float64(settings.TileSize))
-
-	// Handle negative coordinates properly
-	if worldX < 0 {
-		blockX = int(worldX/float64(settings.TileSize)) - 1
-	}
-	if worldY < 0 {
-		blockY = int(worldY/float64(settings.TileSize)) - 1
-	}
-
-	// Check if block is in range
-	playerCenterX := player.X + float64(settings.PlayerColliderWidth)/2
-	playerCenterY := player.Y + float64(settings.PlayerColliderHeight)/2
-	blockCenterX := float64(blockX)*float64(settings.TileSize) + float64(settings.TileSize)/2
-	blockCenterY := float64(blockY)*float64(settings.TileSize) + float64(settings.TileSize)/2
-
-	dx := blockCenterX - playerCenterX
-	dy := blockCenterY - playerCenterY
-	distance := dx*dx + dy*dy
-	inRange := distance <= player.InteractionRange*player.InteractionRange
-
-	// Calculate screen position of the target block
-	blockScreenX := float64(blockX*settings.TileSize) - g.CameraX
-	blockScreenY := float64(blockY*settings.TileSize) - g.CameraY
-
-	// Only draw if block is on screen
-	if blockScreenX >= -float64(settings.TileSize) && blockScreenX < float64(screen.Bounds().Dx()) &&
-		blockScreenY >= -float64(settings.TileSize) && blockScreenY < float64(screen.Bounds().Dy()) {
-
-		// Create highlight color based on whether block is in range
-		var highlightColor color.RGBA
-		if inRange {
-			highlightColor = color.RGBA{255, 255, 255, 128} // White semi-transparent
-		} else {
-			highlightColor = color.RGBA{255, 0, 0, 128} // Red semi-transparent (out of range)
-		}
-
-		// Draw block outline
-		g.drawBlockOutline(screen, int(blockScreenX), int(blockScreenY), highlightColor)
-	}
-
-	// Draw simple crosshair at cursor
-	crosshairSize := 8
-	crosshairColor := color.RGBA{255, 255, 255, 200}
-
-	// Horizontal line
-	for i := -crosshairSize; i <= crosshairSize; i++ {
-		px, py := mouseX+i, mouseY
-		if px >= 0 && px < screen.Bounds().Dx() && py >= 0 && py < screen.Bounds().Dy() {
-			screen.Set(px, py, crosshairColor)
-		}
-	}
-
-	// Vertical line
-	for i := -crosshairSize; i <= crosshairSize; i++ {
-		px, py := mouseX, mouseY+i
-		if px >= 0 && px < screen.Bounds().Dx() && py >= 0 && py < screen.Bounds().Dy() {
-			screen.Set(px, py, crosshairColor)
-		}
-	}
-}
-
-// drawBlockOutline draws an outline around a block
-func (g *Game) drawBlockOutline(screen *ebiten.Image, x, y int, outlineColor color.RGBA) {
-	tileSize := settings.TileSize
-
-	// Top edge
-	for i := 0; i < tileSize; i++ {
-		if x+i >= 0 && x+i < screen.Bounds().Dx() && y >= 0 && y < screen.Bounds().Dy() {
-			screen.Set(x+i, y, outlineColor)
-		}
-		if x+i >= 0 && x+i < screen.Bounds().Dx() && y+1 >= 0 && y+1 < screen.Bounds().Dy() {
-			screen.Set(x+i, y+1, outlineColor)
-		}
-	}
-
-	// Bottom edge
-	for i := 0; i < tileSize; i++ {
-		if x+i >= 0 && x+i < screen.Bounds().Dx() && y+tileSize-1 >= 0 && y+tileSize-1 < screen.Bounds().Dy() {
-			screen.Set(x+i, y+tileSize-1, outlineColor)
-		}
-		if x+i >= 0 && x+i < screen.Bounds().Dx() && y+tileSize-2 >= 0 && y+tileSize-2 < screen.Bounds().Dy() {
-			screen.Set(x+i, y+tileSize-2, outlineColor)
-		}
-	}
-
-	// Left edge
-	for i := 0; i < tileSize; i++ {
-		if x >= 0 && x < screen.Bounds().Dx() && y+i >= 0 && y+i < screen.Bounds().Dy() {
-			screen.Set(x, y+i, outlineColor)
-		}
-		if x+1 >= 0 && x+1 < screen.Bounds().Dx() && y+i >= 0 && y+i < screen.Bounds().Dy() {
-			screen.Set(x+1, y+i, outlineColor)
-		}
-	}
-
-	// Right edge
-	for i := 0; i < tileSize; i++ {
-		if x+tileSize-1 >= 0 && x+tileSize-1 < screen.Bounds().Dx() && y+i >= 0 && y+i < screen.Bounds().Dy() {
-			screen.Set(x+tileSize-1, y+i, outlineColor)
-		}
-		if x+tileSize-2 >= 0 && x+tileSize-2 < screen.Bounds().Dx() && y+i >= 0 && y+i < screen.Bounds().Dy() {
-			screen.Set(x+tileSize-2, y+i, outlineColor)
-		}
 	}
 }
