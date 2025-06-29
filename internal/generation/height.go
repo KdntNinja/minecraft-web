@@ -17,23 +17,23 @@ func GetHeightAt(worldX int) int {
 	x := float64(worldX)
 
 	// Base terrain height using low-frequency noise
-	baseHeight := noise.Noise2D(x/100.0, 0)
+	baseHeight := noise.Noise2D(x/settings.TerrainBaseScale, 0)
 
 	// Add hills and valleys with medium-frequency noise
-	hillHeight := noise.Noise2D(x/50.0, 100)
+	hillHeight := noise.Noise2D(x/settings.TerrainHillScale, settings.TerrainHillOffset)
 
 	// Add small details with high-frequency noise
-	detailHeight := noise.Noise2D(x/20.0, 200)
+	detailHeight := noise.Noise2D(x/settings.TerrainDetailScale, settings.TerrainDetailOffset)
 
 	// Combine noise layers
-	combinedNoise := baseHeight*0.6 + hillHeight*0.3 + detailHeight*0.1
+	combinedNoise := baseHeight*settings.TerrainBaseWeight + hillHeight*settings.TerrainHillWeight + detailHeight*settings.TerrainDetailWeight
 
 	// Scale and offset to world coordinates
 	height := int(float64(settings.SurfaceBaseHeight) + combinedNoise*float64(settings.SurfaceHeightVar))
 
 	// Ensure height is within reasonable bounds
-	minHeight := 20                                              // Keep surface well above bedrock
-	maxHeight := settings.ChunkHeight*settings.WorldChunksY - 50 // Leave room above
+	minHeight := settings.TerrainMinHeight
+	maxHeight := settings.ChunkHeight*settings.WorldChunksY - settings.TerrainMaxHeightBuffer
 	if height < minHeight {
 		height = minHeight
 	}

@@ -1,5 +1,7 @@
 package generation
 
+import "github.com/KdntNinja/webcraft/internal/core/settings"
+
 // IsCave determines if a position should be a cave using 3D-like noise
 func IsCave(worldX, worldY int) bool {
 	surfaceHeight := GetHeightAt(worldX)
@@ -15,76 +17,69 @@ func IsCave(worldX, worldY int) bool {
 	depth := worldY - surfaceHeight
 
 	// Surface cave entrances (more common and visible)
-	if depth >= -2 && depth <= 8 {
-		entranceNoise := caveNoise.Noise2D(x/35.0+8000, y/35.0+8000)
-		if entranceNoise > 0.65 { // Reduced from 0.75 for more entrances
+	if depth >= settings.CaveSurfaceEntranceMinDepth && depth <= settings.CaveSurfaceEntranceMaxDepth {
+		entranceNoise := caveNoise.Noise2D(x/settings.CaveSurfaceEntranceScale+settings.CaveSurfaceEntranceOffset, y/settings.CaveSurfaceEntranceScale+settings.CaveSurfaceEntranceOffset)
+		if entranceNoise > settings.CaveSurfaceEntranceThresh {
 			return true // Surface cave entrance
 		}
 	}
 
-	// Multiple cave types for variety
+	// More interconnected caves: blend horizontal and vertical tunnels, increase their weights
+	largeCaveNoise := caveNoise.Noise2D(x/settings.CaveLargeScale, y/settings.CaveLargeScale)
+	horizontalTunnels := caveNoise.Noise2D(x/settings.CaveHorizontalScale+settings.CaveHorizontalYOffset, y/settings.CaveHorizontalYScale+settings.CaveHorizontalYOffset)
+	verticalShafts := caveNoise.Noise2D(x/settings.CaveVerticalScale+settings.CaveVerticalYOffset, y/settings.CaveVerticalYScale+settings.CaveVerticalYOffset)
+	smallCaves := caveNoise.Noise2D(x/settings.CaveSmallScale+settings.CaveSmallYOffset, y/settings.CaveSmallScale+settings.CaveSmallYOffset)
+	airPockets := caveNoise.Noise2D(x/settings.CaveAirPocketScale+settings.CaveAirPocketYOffset, y/settings.CaveAirPocketScale+settings.CaveAirPocketYOffset)
 
-	// 1. Large caverns (Terraria-style)
-	largeCaveNoise := caveNoise.Noise2D(x/60.0, y/60.0)
-
-	// 2. Winding tunnels (horizontal emphasis)
-	horizontalTunnels := caveNoise.Noise2D(x/25.0+1000, y/45.0+1000)
-
-	// 3. Vertical shafts
-	verticalShafts := caveNoise.Noise2D(x/45.0+2000, y/20.0+2000)
-
-	// 4. Small pockets and connecting passages
-	smallCaves := caveNoise.Noise2D(x/15.0+3000, y/15.0+3000)
-
-	// 5. Tiny air bubbles
-	airPockets := caveNoise.Noise2D(x/8.0+4000, y/8.0+4000)
+	// Blend horizontal and vertical tunnels for more cross-connections
+	tunnelBlend := (horizontalTunnels + verticalShafts) * 0.5
 
 	// Depth-based cave generation with different types
-	if depth > 150 {
+	if depth > settings.CaveVeryDeepDepth {
 		// Very deep - large caverns and complex systems
-		largeCaverns := largeCaveNoise*0.5 + horizontalTunnels*0.3 + verticalShafts*0.2
-		if largeCaverns > 0.25 {
+		largeCaverns := largeCaveNoise*0.25 + tunnelBlend*0.35 + smallCaves*0.25 + airPockets*0.15
+		if largeCaverns > 0.08 {
 			return true
 		}
 
 		// Additional tunnel networks deep underground
-		deepTunnels := smallCaves*0.6 + airPockets*0.4
-		return deepTunnels > 0.45
+		deepTunnels := tunnelBlend*0.5 + smallCaves*0.3 + airPockets*0.2
+		return deepTunnels > 0.18
 
-	} else if depth > 100 {
+	} else if depth > settings.CaveDeepDepth {
 		// Deep caves - mix of large and medium caves
-		deepCaves := largeCaveNoise*0.4 + horizontalTunnels*0.4 + smallCaves*0.2
-		if deepCaves > 0.3 {
+		deepCaves := largeCaveNoise*0.18 + tunnelBlend*0.45 + smallCaves*0.25 + airPockets*0.12
+		if deepCaves > 0.10 {
 			return true
 		}
 
 		// Vertical connections between levels
-		return verticalShafts > 0.55
+		return tunnelBlend > 0.18
 
-	} else if depth > 50 {
+	} else if depth > settings.CaveMediumDepth {
 		// Medium depth - primarily horizontal tunnel systems
-		mediumCaves := horizontalTunnels*0.5 + smallCaves*0.3 + airPockets*0.2
-		if mediumCaves > 0.4 {
+		mediumCaves := tunnelBlend*0.5 + smallCaves*0.35 + airPockets*0.15
+		if mediumCaves > 0.13 {
 			return true
 		}
 
 		// Some vertical shafts connecting to surface
-		return verticalShafts > 0.6
+		return tunnelBlend > 0.22
 
-	} else if depth > 20 { // Reduced from 50 for more medium-depth caves
+	} else if depth > settings.CaveShallowDepth { // more shallow caves
 		// Medium-shallow caves - tunnel systems closer to surface
-		mediumShallowCaves := horizontalTunnels*0.4 + smallCaves*0.4 + airPockets*0.2
-		if mediumShallowCaves > 0.35 { // More generous threshold
+		mediumShallowCaves := tunnelBlend*0.45 + smallCaves*0.4 + airPockets*0.15
+		if mediumShallowCaves > 0.10 {
 			return true
 		}
 
 		// More vertical connections to surface
-		return verticalShafts > 0.55
+		return tunnelBlend > 0.18
 
-	} else if depth > 5 { // Reduced from 10 for caves very close to surface
+	} else if depth > settings.CaveMinShallowDepth {
 		// Shallow caves - small pockets and tunnels near surface
-		shallowCaves := smallCaves*0.5 + airPockets*0.3 + horizontalTunnels*0.2
-		return shallowCaves > 0.45 // Reduced from 0.55 for more shallow caves
+		shallowCaves := tunnelBlend*0.4 + smallCaves*0.45 + airPockets*0.15
+		return shallowCaves > 0.09 // much more shallow caves
 	}
 
 	return false

@@ -152,7 +152,7 @@ func (p *Player) CanBreakBlock(blockX, blockY int) bool {
 	x, y := x0, y0
 	for {
 		if !(x == x0 && y == y0) && !(x == x1 && y == y1) {
-			if p.World != nil && p.World.GetBlockAt != nil {
+			if p.World != nil {
 				if p.World.GetBlockAt(x, y) != block.Air {
 					return false
 				}

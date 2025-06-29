@@ -21,8 +21,10 @@ func initTextureImages() {
 
 	// Load textures from the graphics package
 	if err := graphics.LoadTextures(settings.TileSize); err != nil {
-		log.Printf("Error loading textures: %v", err)
-		log.Printf("Falling back to solid colors")
+		if settings.TextureLogFallback {
+			log.Printf("Error loading textures: %v", err)
+			log.Printf("Falling back to solid colors")
+		}
 		initFallbackTextures()
 		return
 	}
@@ -44,14 +46,18 @@ func initTextureImages() {
 		}
 
 		// Fallback to solid color if texture not found
-		log.Printf("Using fallback color for block type %v", blockType)
+		if settings.TextureLogFallback {
+			log.Printf("Using fallback color for block type %v", blockType)
+		}
 		tile := ebiten.NewImage(settings.TileSize, settings.TileSize)
 		tile.Fill(getBlockColorFast(blockType))
 		tileImages[blockType] = tile
 	}
 
 	isInitialized = true
-	log.Printf("Texture system initialized with %d block textures", len(tileImages))
+	if settings.TextureLogInit {
+		log.Printf("Texture system initialized with %d block textures", len(tileImages))
+	}
 }
 
 // initFallbackTextures creates solid color textures as a fallback
