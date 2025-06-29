@@ -38,7 +38,7 @@ func GetUndergroundBlock(worldX, worldY, surfaceHeight int, rng *rand.Rand) bloc
 	}
 
 	// Shallow underground (already handled in surface.go for <= 4)
-	if depthFromSurface <= 4 {
+	if depthFromSurface <= 8 { // Increased from 4 to 8 for thicker above-ground and shallow layers
 		noiseVal := terrainNoise.Noise2D(float64(worldX)/10.0, float64(worldY)/10.0)
 		if noiseVal > 0.3 {
 			return block.Clay

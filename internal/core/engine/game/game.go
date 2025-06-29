@@ -65,7 +65,7 @@ func NewGame() *Game {
 
 	seed := globalSeed
 	progress.UpdateCurrentStepProgress(1, fmt.Sprintf("Using random world seed: %d", seed))
-	time.Sleep(150 * time.Millisecond) // Small delay to make progress visible
+	time.Sleep(100 * time.Millisecond) // Small delay to make progress visible
 
 	g := &Game{
 		LastScreenW:   800, // Default screen width
@@ -78,18 +78,18 @@ func NewGame() *Game {
 	// Hide the cursor for better gameplay experience
 	ebiten.SetCursorMode(ebiten.CursorModeHidden)
 	progress.UpdateCurrentStepProgress(2, "Set up game configuration")
-	time.Sleep(150 * time.Millisecond)
+	time.Sleep(100 * time.Millisecond)
 
 	// Always reset world generation with the new seed
 	generation.ResetWorldGeneration(seed)
 	progress.UpdateCurrentStepProgress(3, "Reset generation systems")
-	time.Sleep(150 * time.Millisecond)
+	time.Sleep(100 * time.Millisecond)
 
 	// Pre-allocate player image to avoid recreating it every frame
 	g.playerImage = ebiten.NewImage(settings.PlayerWidth, settings.PlayerHeight)
 	g.playerImage.Fill(color.RGBA{255, 255, 0, 255}) // Yellow
 	progress.UpdateCurrentStepProgress(4, "Created player graphics")
-	time.Sleep(150 * time.Millisecond)
+	time.Sleep(100 * time.Millisecond)
 
 	// Complete initialization step
 	progress.CompleteCurrentStep()
@@ -313,13 +313,12 @@ func (g *Game) drawCrosshair(screen *ebiten.Image) {
 	if blockScreenX >= -float64(settings.TileSize) && blockScreenX < float64(screen.Bounds().Dx()) &&
 		blockScreenY >= -float64(settings.TileSize) && blockScreenY < float64(screen.Bounds().Dy()) {
 
-		// Create highlight color based on whether block is in range and breakable
+		// Create highlight color based on whether block is in range
 		var highlightColor color.RGBA
-		canBreak := player.CanBreakBlock(blockX, blockY)
-		if inRange && canBreak {
+		if inRange {
 			highlightColor = color.RGBA{255, 255, 255, 128} // White semi-transparent
 		} else {
-			highlightColor = color.RGBA{255, 0, 0, 128} // Red semi-transparent (out of range or not breakable)
+			highlightColor = color.RGBA{255, 0, 0, 128} // Red semi-transparent (out of range)
 		}
 
 		// Draw block outline
