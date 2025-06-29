@@ -14,9 +14,14 @@ type Player struct {
 	InteractionRange    float64         // Maximum range for block interaction
 	LastInteractionTime int             // Frame counter for interaction cooldown
 	InteractionCooldown int             // Cooldown frames between interactions (faster than inpututil)
+	World               interface {     // Reference to world for block checks
+		GetBlockAt(x, y int) block.BlockType
+	}
 }
 
-func NewPlayer(x, y float64) *Player {
+func NewPlayer(x, y float64, world interface {
+	GetBlockAt(x, y int) block.BlockType
+}) *Player {
 	return &Player{
 		AABB: entity.AABB{
 			X: x, Y: y, Width: settings.PlayerWidth, Height: settings.PlayerHeight,
@@ -24,6 +29,7 @@ func NewPlayer(x, y float64) *Player {
 		SelectedBlock:       block.Grass,                    // Default to grass blocks (block 1)
 		InteractionRange:    float64(settings.TileSize * 4), // 4 block radius
 		InteractionCooldown: 0,                              // 3 frames cooldown (about 0.05 seconds at 60fps)
+		World:               world,
 	}
 }
 

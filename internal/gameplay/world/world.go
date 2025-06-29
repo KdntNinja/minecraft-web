@@ -46,7 +46,7 @@ func NewWorld(seed int64) *World {
 
 	// Step: Spawning Player (before chunk loading)
 	progress.UpdateCurrentStepProgress(1, "Creating player entity...")
-	playerEntity := player.NewPlayer(spawnPoint.X, spawnPoint.Y)
+	playerEntity := player.NewPlayer(spawnPoint.X, spawnPoint.Y, w)
 	w.Entities = append(w.Entities, playerEntity)
 	progress.UpdateCurrentStepProgress(2, "Created player entity")
 	progress.CompleteCurrentStep()

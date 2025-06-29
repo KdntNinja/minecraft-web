@@ -313,12 +313,13 @@ func (g *Game) drawCrosshair(screen *ebiten.Image) {
 	if blockScreenX >= -float64(settings.TileSize) && blockScreenX < float64(screen.Bounds().Dx()) &&
 		blockScreenY >= -float64(settings.TileSize) && blockScreenY < float64(screen.Bounds().Dy()) {
 
-		// Create highlight color based on whether block is in range
+		// Create highlight color based on whether block is in range and breakable
 		var highlightColor color.RGBA
-		if inRange {
+		canBreak := player.CanBreakBlock(blockX, blockY)
+		if inRange && canBreak {
 			highlightColor = color.RGBA{255, 255, 255, 128} // White semi-transparent
 		} else {
-			highlightColor = color.RGBA{255, 0, 0, 128} // Red semi-transparent (out of range)
+			highlightColor = color.RGBA{255, 0, 0, 128} // Red semi-transparent (out of range or not breakable)
 		}
 
 		// Draw block outline
