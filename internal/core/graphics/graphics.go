@@ -42,10 +42,10 @@ var BlockTextureConfigs = map[block.BlockType]BlockTextureConfig{
 	block.Water:     {Filename: "water.png", Coord: AtlasCoord{X: 1, Y: 1}},
 	block.Ash:       {Filename: "clay.png", Coord: AtlasCoord{X: 0, Y: 1}},
 	block.Hellstone: {Filename: "goldore.png", Coord: AtlasCoord{X: 0, Y: 0}},
-	block.Granite:   {Filename: "stone.png", Coord: AtlasCoord{X: 0, Y: 0}}, // Use stone.png, different tile/tint
-	block.Andesite:  {Filename: "stone.png", Coord: AtlasCoord{X: 0, Y: 0}}, // Use stone.png, different tile/tint
-	block.Diorite:   {Filename: "stone.png", Coord: AtlasCoord{X: 0, Y: 0}}, // Use stone.png, different tile/tint
-	block.Slate:     {Filename: "stone.png", Coord: AtlasCoord{X: 0, Y: 0}}, // Use stone.png, different tile/tint
+	block.Granite:   {Filename: "stone.png", Coord: AtlasCoord{X: 0, Y: 0}}, // Use stone.png, different tint
+	block.Andesite:  {Filename: "stone.png", Coord: AtlasCoord{X: 0, Y: 0}}, // Use stone.png, different tint
+	block.Diorite:   {Filename: "stone.png", Coord: AtlasCoord{X: 0, Y: 0}}, // Use stone.png, different tint
+	block.Slate:     {Filename: "stone.png", Coord: AtlasCoord{X: 0, Y: 0}}, // Use stone.png, different tint
 }
 
 // LoadTextures loads all block textures from their individual atlas files

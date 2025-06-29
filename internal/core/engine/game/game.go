@@ -10,6 +10,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 
+	"github.com/KdntNinja/webcraft/internal/core/physics/entity"
 	"github.com/KdntNinja/webcraft/internal/core/progress"
 	"github.com/KdntNinja/webcraft/internal/core/settings"
 	"github.com/KdntNinja/webcraft/internal/gameplay/player"
@@ -47,6 +48,12 @@ type Game struct {
 	fpsCounter    int       // Frame counter for FPS calculation
 	lastFPSUpdate time.Time // Last time FPS was calculated
 	currentFPS    float64   // Current FPS value to display
+
+	// --- Physics cache ---
+	physicsWorld   *entity.PhysicsWorld // Cached physics world for collisions
+	physicsGrid    [][]int              // Cached grid used to build physicsWorld
+	physicsOffsetX int
+	physicsOffsetY int
 }
 
 func NewGame() *Game {
@@ -130,15 +137,6 @@ func (g *Game) Update() error {
 	}
 
 	// Update only entities near the camera/screen - cached grid for better performance
-	var grid [][]int
-	var gridOffsetX, gridOffsetY int
-
-	// Only regenerate collision grid when absolutely necessary (much less frequent)
-	if g.frameCount%60 == 0 || g.World.IsGridDirty() {
-		grid, gridOffsetX, gridOffsetY = g.World.ToIntGrid()
-	} else {
-		grid, gridOffsetX, gridOffsetY = g.World.GetCachedGrid()
-	}
 
 	// Pre-calculate camera bounds once
 	camLeft := g.CameraX - float64(settings.TileSize*2)
@@ -150,13 +148,13 @@ func (g *Game) Update() error {
 	for _, e := range g.World.Entities {
 		if p, ok := e.(*player.Player); ok {
 			// Frustum culling for entities
-			if p.X+float64(settings.PlayerWidth) < camLeft || p.X > camRight ||
-				p.Y+float64(settings.PlayerHeight) < camTop || p.Y > camBottom {
+			if p.X+float64(settings.PlayerColliderWidth) < camLeft || p.X > camRight ||
+				p.Y+float64(settings.PlayerColliderHeight) < camTop || p.Y > camBottom {
 				continue // Skip entities far from view
 			}
 			// Set the offset for the player's collision system
-			p.AABB.GridOffsetX = gridOffsetX
-			p.AABB.GridOffsetY = gridOffsetY
+			p.AABB.GridOffsetX = g.physicsOffsetX
+			p.AABB.GridOffsetY = g.physicsOffsetY
 
 			// Update player movement
 			p.Update()
@@ -167,7 +165,10 @@ func (g *Game) Update() error {
 				g.handleBlockInteraction(p, blockInteraction)
 			}
 
-			p.CollideBlocks(grid)
+			// Use cached physics world
+			if g.physicsWorld != nil {
+				p.CollideBlocksAdvanced(g.physicsWorld)
+			}
 		}
 	}
 
@@ -175,13 +176,35 @@ func (g *Game) Update() error {
 	if len(g.World.Entities) > 0 {
 		if player, ok := g.World.Entities[0].(*player.Player); ok {
 			// Tighter camera following with offset for better view ahead
-			targetCameraX := player.X + float64(settings.PlayerWidth)/2 - float64(g.LastScreenW)/2
-			targetCameraY := player.Y + float64(settings.PlayerHeight)/2 - float64(g.LastScreenH)/2 - float64(settings.TileSize*2)
+			targetCameraX := player.X + float64(settings.PlayerColliderWidth)/2 - float64(g.LastScreenW)/2
+			targetCameraY := player.Y + float64(settings.PlayerColliderHeight)/2 - float64(g.LastScreenH)/2 - float64(settings.TileSize*2)
 
 			// More responsive camera movement for zoomed-in feel
 			lerpFactor := 0.12 // Increased from 0.05 for more responsive following
 			g.CameraX += (targetCameraX - g.CameraX) * lerpFactor
 			g.CameraY += (targetCameraY - g.CameraY) * lerpFactor
+		}
+	}
+
+	// Only regenerate collision grid and physics world when necessary
+	if g.frameCount%60 == 0 || g.World.IsGridDirty() || g.physicsWorld == nil {
+		g.physicsGrid, g.physicsOffsetX, g.physicsOffsetY = g.World.ToIntGrid()
+		g.physicsWorld = entity.NewPhysicsWorld(g.physicsGrid)
+		// Sanity check: if grid is all air, log a warning (for debugging)
+		allAir := true
+		for _, row := range g.physicsGrid {
+			for _, v := range row {
+				if v != 0 {
+					allAir = false
+					break
+				}
+			}
+			if !allAir {
+				break
+			}
+		}
+		if allAir {
+			fmt.Println("[WARN] Physics grid is all air! Player will float.")
 		}
 	}
 
@@ -214,11 +237,13 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	for _, e := range g.World.Entities {
 		if p, ok := e.(*player.Player); ok {
 			// Use pre-calculated camera bounds
-			if p.X+float64(settings.PlayerWidth) < camLeft || p.X > camRight ||
-				p.Y+float64(settings.PlayerHeight) < camTop || p.Y > camBottom {
+			if p.X+float64(settings.PlayerColliderWidth) < camLeft || p.X > camRight ||
+				p.Y+float64(settings.PlayerColliderHeight) < camTop || p.Y > camBottom {
 				continue // Skip entities far from view
 			}
-			px, py := int(p.X-g.CameraX), int(p.Y-g.CameraY)
+			// Center sprite horizontally and bottom-align vertically over collider
+			px := int(p.X - g.CameraX - float64(settings.PlayerWidth-settings.PlayerColliderWidth)/2)
+			py := int(p.Y - g.CameraY - float64(settings.PlayerHeight-settings.PlayerColliderHeight))
 			if px > -settings.PlayerWidth && px < g.LastScreenW && py > -settings.PlayerHeight && py < g.LastScreenH {
 				// Reuse the DrawImageOptions instead of creating new ones
 				op.GeoM.Reset()
@@ -239,8 +264,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	if len(g.World.Entities) > 0 {
 		if player, ok := g.World.Entities[0].(*player.Player); ok {
 			selectedBlockText := fmt.Sprintf("\nSelected Block: %v", player.SelectedBlock)
-			controlsText := "\nControls: Left Click = Break, Right Click = Place"
-			numbersText := "\nBlocks: 1=Grass 2=Dirt 3=Clay 4=Stone 5=Copper 6=Iron 7=Gold 8=Ash 9=Wood 0=Leaves"
+			controlsText := "\nControls:\n Left Click = Break\n Right Click = Place"
+			numbersText := "\nBlocks:\n 1=Grass\n 2=Dirt\n 3=Clay\n 4=Stone\n 5=Copper\n 6=Iron\n 7=Gold\n 8=Ash\n 9=Wood\n 0=Leaves\n"
 			uiText := fpsText + selectedBlockText + controlsText + numbersText
 			ebitenutil.DebugPrint(screen, uiText)
 		}
@@ -257,6 +282,17 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 
 // handleBlockInteraction processes block interaction events from the player
 func (g *Game) handleBlockInteraction(p *player.Player, interaction *player.BlockInteraction) {
+	inRange := func() bool {
+		playerCenterX := p.X + float64(settings.PlayerWidth)/2
+		playerCenterY := p.Y + float64(settings.PlayerHeight)/2
+		dx := float64(interaction.BlockX*settings.TileSize) + float64(settings.TileSize)/2 - playerCenterX
+		dy := float64(interaction.BlockY*settings.TileSize) + float64(settings.TileSize)/2 - playerCenterY
+		return dx*dx+dy*dy <= p.InteractionRange*p.InteractionRange
+	}
+	canBreak := p.CanBreakBlock(interaction.BlockX, interaction.BlockY)
+	if !inRange() || !canBreak {
+		return // Out of range or not breakable, do nothing
+	}
 	switch interaction.Type {
 	case player.BreakBlock:
 		g.World.BreakBlock(interaction.BlockX, interaction.BlockY)
@@ -295,8 +331,8 @@ func (g *Game) drawCrosshair(screen *ebiten.Image) {
 	}
 
 	// Check if block is in range
-	playerCenterX := player.X + float64(settings.PlayerWidth)/2
-	playerCenterY := player.Y + float64(settings.PlayerHeight)/2
+	playerCenterX := player.X + float64(settings.PlayerColliderWidth)/2
+	playerCenterY := player.Y + float64(settings.PlayerColliderHeight)/2
 	blockCenterX := float64(blockX)*float64(settings.TileSize) + float64(settings.TileSize)/2
 	blockCenterY := float64(blockY)*float64(settings.TileSize) + float64(settings.TileSize)/2
 

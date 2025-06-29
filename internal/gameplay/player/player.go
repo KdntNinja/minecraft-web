@@ -22,9 +22,15 @@ type Player struct {
 func NewPlayer(x, y float64, world interface {
 	GetBlockAt(x, y int) block.BlockType
 }) *Player {
+	// Center collider horizontally in sprite, bottom-aligned
+	colliderX := x + float64(settings.PlayerWidth-settings.PlayerColliderWidth)/2
+	colliderY := y + float64(settings.PlayerHeight-settings.PlayerColliderHeight)
 	return &Player{
 		AABB: entity.AABB{
-			X: x, Y: y, Width: settings.PlayerWidth, Height: settings.PlayerHeight,
+			X:      colliderX,
+			Y:      colliderY,
+			Width:  settings.PlayerColliderWidth,
+			Height: settings.PlayerColliderHeight,
 		},
 		SelectedBlock:       block.Grass,                    // Default to grass blocks (block 1)
 		InteractionRange:    float64(settings.TileSize * 4), // 4 block radius
@@ -65,8 +71,13 @@ func (p *Player) SetSelectedBlock(blockType block.BlockType) {
 }
 
 // Entity interface implementations (delegate to AABB)
-func (p *Player) CollideBlocks(blocks [][]int) {
-	p.AABB.CollideBlocks(blocks)
+// CollideBlocksAdvanced: Use robust sub-stepping collision with PhysicsWorld
+type PhysicsWorldProvider interface {
+	GetPhysicsWorld() *entity.PhysicsWorld
+}
+
+func (p *Player) CollideBlocksAdvanced(world *entity.PhysicsWorld) {
+	p.AABB.CollideBlocksAdvanced(world)
 }
 
 func (p *Player) ClampX(min, max float64) {
