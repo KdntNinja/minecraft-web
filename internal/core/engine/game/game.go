@@ -1,8 +1,10 @@
 package game
 
 import (
+	"crypto/rand"
 	"fmt"
 	"image/color"
+	"math/big"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -15,6 +17,19 @@ import (
 	"github.com/KdntNinja/webcraft/internal/generation"
 	"github.com/KdntNinja/webcraft/internal/rendering"
 )
+
+var globalSeed int64
+
+// init generates a random seed when the package is initialized
+func init() {
+	// Generate a truly random seed
+	if randomBig, err := rand.Int(rand.Reader, big.NewInt(1000000)); err == nil {
+		globalSeed = randomBig.Int64()
+	} else {
+		// Fallback to time-based seed if crypto/rand fails
+		globalSeed = time.Now().UnixNano() % 1000000
+	}
+}
 
 type Game struct {
 	World       *world.World
@@ -35,18 +50,21 @@ type Game struct {
 }
 
 func NewGame() *Game {
-	// Initialize dynamic progress system
+	// Use view distance from settings
+	viewDistance := settings.ChunkViewDistance
+	totalChunks := (viewDistance*2 + 1) * (viewDistance*2 + 1)
+
 	steps := []progress.ProgressStep{
 		{Name: "Initializing", Weight: 1.0, SubSteps: 4, Description: "Starting game initialization..."},
 		{Name: "World Setup", Weight: 1.0, SubSteps: 3, Description: "Setting up world structure..."},
-		{Name: "Generating Terrain", Weight: 8.0, SubSteps: 1, Description: "Generating world chunks..."}, // This will be updated dynamically
+		{Name: "Generating Terrain", Weight: 8.0, SubSteps: totalChunks, Description: "Generating world chunks..."},
 		{Name: "Spawning Player", Weight: 1.0, SubSteps: 3, Description: "Creating player entity..."},
 		{Name: "Finalizing", Weight: 1.0, SubSteps: 1, Description: "Finishing initialization..."},
 	}
 	progress.InitializeProgress(steps)
 
-	seed := time.Now().UnixNano() % 1000000
-	progress.UpdateCurrentStepProgress(1, "Generated new world seed")
+	seed := globalSeed
+	progress.UpdateCurrentStepProgress(1, fmt.Sprintf("Using random world seed: %d", seed))
 	time.Sleep(150 * time.Millisecond) // Small delay to make progress visible
 
 	g := &Game{
@@ -99,6 +117,9 @@ func (g *Game) Update() error {
 
 	g.frameCount++
 	g.fpsCounter++
+
+	// Update world (handles dynamic chunk loading)
+	g.World.Update()
 
 	// Update FPS calculation every second
 	now := time.Now()
@@ -169,16 +190,16 @@ func (g *Game) Update() error {
 
 func (g *Game) Draw(screen *ebiten.Image) {
 	if g.World == nil {
-		// Fill with a solid color to prevent black flashing
-		screen.Fill(color.RGBA{135, 206, 250, 255}) // Sky blue
+		// Fill with black background
+		screen.Fill(color.RGBA{0, 0, 0, 255}) // Black
 		return
 	}
 
-	// Clear screen with sky color to prevent flashing
-	screen.Fill(color.RGBA{135, 206, 250, 255}) // Sky blue
+	// Clear screen with black background
+	screen.Fill(color.RGBA{0, 0, 0, 255}) // Black
 
 	// Render world directly to screen (avoid intermediate image allocation)
-	rendering.DrawWithCamera(g.World.Chunks, screen, g.CameraX, g.CameraY)
+	rendering.DrawWithCamera(g.World.GetChunksForRendering(), screen, g.CameraX, g.CameraY)
 
 	// Pre-calculate camera bounds for entity culling
 	camLeft := g.CameraX - float64(settings.TileSize*2)

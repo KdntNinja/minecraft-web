@@ -6,8 +6,8 @@
     <title>Webcraft</title>
     <style>
         html, body {
-            height: 100vh;
             width: 100vw;
+            height: 100vh;
             margin: 0;
             padding: 0;
             background: #000;
@@ -26,7 +26,7 @@
             position: fixed;
             top: 0; left: 0;
             width: 100vw; height: 100vh;
-            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            background: #000;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -90,7 +90,7 @@
             background: rgba(0, 0, 0, 0.7);
             border-radius: 8px;
             padding: 15px;
-            overflow-y: auto;
+            overflow-y: hidden;
             border: 1px solid rgba(76, 175, 80, 0.3);
         }
         
@@ -110,6 +110,23 @@
             color: #4caf50;
             font-weight: bold;
         }
+        
+        #loading-spinner {
+            display: none;
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(76, 175, 80, 0.3);
+            border-top: 4px solid #4caf50;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-top: 5px;
+            margin-bottom: 30px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -121,7 +138,7 @@
         </div>
         <div id="loading-stage">Initializing...</div>
         <div id="loading-message">Starting up...</div>
-        <button id="skip-loading" onclick="forceHideLoading()" style="margin-top: 20px; padding: 10px 20px; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; cursor: pointer; display: none;">Skip Loading Screen</button>
+        <div id="loading-spinner"></div>
         <div id="loading-logs"></div>
     </div>
     <script src="wasm_exec.js"></script>
@@ -210,9 +227,9 @@
             
             if (percentage >= 100) {
                 console.log('Loading complete! Hiding loading screen...');
-                // Show skip button in case auto-hide fails
-                const skipButton = document.getElementById('skip-loading');
-                if (skipButton) skipButton.style.display = 'inline-block';
+                // Show spinner while finalizing
+                const spinner = document.getElementById('loading-spinner');
+                if (spinner) spinner.style.display = 'block';
                 
                 // Hide loading screen after a brief delay
                 setTimeout(() => {
@@ -225,16 +242,6 @@
                 }, 1000);
             }
         }
-        
-        // Function to manually hide loading screen
-        window.forceHideLoading = function() {
-            console.log('Manually hiding loading screen...');
-            const loadingScreen = document.getElementById('loading-screen');
-            if (loadingScreen) {
-                loadingScreen.style.display = 'none';
-                console.log('Loading screen hidden manually');
-            }
-        };
         
         const go = new Go();
         WebAssembly.instantiateStreaming(fetch("main.wasm"), go.importObject).then((result) => {

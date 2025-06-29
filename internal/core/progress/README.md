@@ -78,10 +78,11 @@ type ProgressTracker struct {
 The weight system allows you to allocate progress bar movement proportionally:
 
 - **Weight 1.0**: Standard step
-Example:
+- **Weight 2.0**: Takes twice as much progress bar space
 - **Weight 0.5**: Takes half as much progress bar space
 
 Example:
+
 ```go
 steps := []progress.ProgressStep{
     {Name: "Quick Setup", Weight: 1.0, SubSteps: 1, Description: "Fast initialization"},
@@ -145,20 +146,23 @@ The WASM `index.html` includes:
 - **Message Display**: Current detailed message
 - **Log Area**: Scrollable progress history
 - **Debug Controls**: Manual skip option for testing
-Console messages follow this pattern:
+
 ### Message Format
 
 Console messages follow this pattern:
-```
+
+```text
 [PROGRESS] Stage Name: Detailed message (XX%)
 ```
 
 Example:
-```
+
+```text
 [PROGRESS] Generating Terrain: Generated chunk 15/25 (67%)
 ```
 
 ## Extending the System
+
 1. **Define the step** in your initialization:
 
    ```go
@@ -182,9 +186,7 @@ Example:
 ### Custom Progress Patterns
 
 #### File Loading Pattern
-### Custom Progress Patterns
 
-#### File Loading Pattern
 ```go
 files := []string{"texture1.png", "sound1.wav", "model1.obj"}
 progress.SetCurrentStepSubSteps(len(files), "Loading game assets...")
@@ -197,6 +199,7 @@ progress.CompleteCurrentStep()
 ```
 
 #### Batch Processing Pattern
+
 ```go
 batchSize := 10
 totalItems := 100
@@ -210,16 +213,17 @@ for batch := 0; batch < batches; batch++ {
     
     processBatch(start, end)
     progress.UpdateCurrentStepProgress(batch+1, 
+        fmt.Sprintf("Processed batch %d/%d (%d-%d)", batch+1, batches, start+1, end))
+}
+progress.CompleteCurrentStep()
+```
+
 ## Best Practices
 
 ### 1. Meaningful Weights
 
 Assign weights based on actual expected time:
 
-## Best Practices
-
-### 1. Meaningful Weights
-Assign weights based on actual expected time:
 ```go
 // Good: Reflects actual time requirements
 {Name: "Config Loading", Weight: 0.5, SubSteps: 1},     // Very fast
@@ -232,7 +236,9 @@ Assign weights based on actual expected time:
 ```
 
 ### 2. Informative Messages
+
 Provide specific, actionable information:
+
 ```go
 // Good: Specific and informative
 progress.UpdateCurrentStepProgress(15, "Generated chunk 15/25 at coordinates (240, 160)")
@@ -242,7 +248,9 @@ progress.UpdateCurrentStepProgress(15, "Working...")
 ```
 
 ### 3. Appropriate Substep Granularity
+
 Balance update frequency with performance:
+
 ```go
 // Good: Reasonable update frequency
 for chunkIndex := 0; chunkIndex < 25; chunkIndex++ {
@@ -259,7 +267,9 @@ for blockX := 0; blockX < 1000; blockX++ {
 ```
 
 ### 4. Error Handling
+
 Include error states in progress reporting:
+
 ```go
 if err := riskyOperation(); err != nil {
 ## Debugging
@@ -272,18 +282,23 @@ Monitor progress in browser console:
 ## Debugging
 
 ### Console Output
+
 Monitor progress in browser console:
-```
+
+```log
 [PROGRESS] Initializing: Starting game initialization... (5%)
 [PROGRESS] Initializing: Generated new world seed (10%)
 [PROGRESS] World Setup: Setting up world structure... (15%)
 ```
 
 ### Manual Testing
+
 Use the "Skip Loading Screen" button in development to bypass long loading times.
 
 ### Progress Validation
+
 Verify progress calculations:
+
 ```go
 If migrating from a simpler progress system:
 
@@ -295,12 +310,14 @@ If migrating from a simpler progress system:
 If migrating from a simpler progress system:
 
 ### Old Code
+
 ```go
 UpdateProgress(5, 10, "Loading", "Loading textures...")  // 50%
 UpdateProgress(10, 10, "Loading", "Loading complete!")  // 100%
 ```
 
 ### New Code
+
 ```go
 // Setup
 steps := []progress.ProgressStep{
@@ -325,6 +342,7 @@ Potential improvements to consider:
 - Custom UI theme support
 
 Potential improvements to consider:
+
 - Parallel step execution tracking
 - Progress persistence across sessions
 - Estimated time remaining calculations

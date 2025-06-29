@@ -7,11 +7,11 @@ import (
 
 	"github.com/KdntNinja/webcraft/internal/core/engine/block"
 	"github.com/KdntNinja/webcraft/internal/core/settings"
-	"github.com/KdntNinja/webcraft/internal/gameplay/world"
+	"github.com/KdntNinja/webcraft/internal/gameplay/world/chunks"
 )
 
 // DrawWithCamera renders the world with camera offset for following player, using the chunk map
-func DrawWithCamera(chunks map[world.ChunkCoord]block.Chunk, screen *ebiten.Image, cameraX, cameraY float64) {
+func DrawWithCamera(worldChunks map[chunks.ChunkCoord]*block.Chunk, screen *ebiten.Image, cameraX, cameraY float64) {
 	if !isInitialized {
 		initTileImages()
 	}
@@ -36,7 +36,7 @@ func DrawWithCamera(chunks map[world.ChunkCoord]block.Chunk, screen *ebiten.Imag
 	// Reuse draw options to reduce allocations
 	drawOpts := getDrawOptions()
 
-	for coord, chunk := range chunks {
+	for coord, chunk := range worldChunks {
 		// If any part of the chunk is in the visible horizontal window, render the whole chunk horizontally
 		if coord.X < startChunkX || coord.X > endChunkX || coord.Y < startChunkY || coord.Y > endChunkY {
 			continue
@@ -45,7 +45,7 @@ func DrawWithCamera(chunks map[world.ChunkCoord]block.Chunk, screen *ebiten.Imag
 			for x := 0; x < settings.ChunkWidth; x++ {
 				globalTileX := coord.X*settings.ChunkWidth + x
 				globalTileY := coord.Y*settings.ChunkHeight + y
-				blockType := chunk[y][x]
+				blockType := (*chunk)[y][x]
 				if blockType == block.Air {
 					continue // Skip air blocks
 				}

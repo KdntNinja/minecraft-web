@@ -7,12 +7,13 @@ const (
 	PerlinOctaves     = 2   // Reduced from 3 for better performance
 	PerlinPersistence = 0.5 // Perlin octave contribution
 
-	ChunkWidth   = 16  // Chunk width (blocks)
-	ChunkHeight  = 256 // Chunk height (blocks)
-	WorldChunksY = 20  // Number of chunks vertically in the world
-	WorldChunksX = 25  // Number of chunks horizontally in the world
-	TileSize     = 42  // Increased from 30 for more zoomed-in view
-	DefaultSeed  = 42  // Default world generation seed
+	ChunkWidth        = 16  // Chunk width (blocks)
+	ChunkHeight       = 256 // Chunk height (blocks)
+	WorldChunksY      = 20  // Number of chunks vertically in the world
+	WorldChunksX      = 25  // Number of chunks horizontally in the world
+	TileSize          = 42  // Increased from 30 for more zoomed-in view
+	DefaultSeed       = 42  // Default world generation seed
+	ChunkViewDistance = 3   // Number of chunks to keep loaded around the player
 )
 
 // --- Biome/Surface Generation ---

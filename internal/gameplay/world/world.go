@@ -2,24 +2,19 @@ package world
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/KdntNinja/webcraft/internal/core/engine/block"
 	"github.com/KdntNinja/webcraft/internal/core/physics/entity"
 	"github.com/KdntNinja/webcraft/internal/core/progress"
 	"github.com/KdntNinja/webcraft/internal/core/settings"
 	"github.com/KdntNinja/webcraft/internal/gameplay/player"
+	"github.com/KdntNinja/webcraft/internal/gameplay/world/chunks"
 	"github.com/KdntNinja/webcraft/internal/generation"
 )
 
-type ChunkCoord struct {
-	X int
-	Y int
-}
-
 type World struct {
-	Chunks   map[ChunkCoord]block.Chunk // Fixed world: map of chunk coordinates to chunks
-	Entities entity.Entities
+	ChunkManager *chunks.ChunkManager // Dynamic chunk loading system
+	Entities     entity.Entities      // All entities in the world
 
 	// Performance optimization caches
 	cachedGrid        [][]int // Cached collision grid
@@ -28,131 +23,41 @@ type World struct {
 	gridDirty         bool    // Flag to indicate grid needs regeneration
 }
 
-// NewWorld constructs a new World instance with a fixed set of pre-generated chunks
+// NewWorld constructs a new World instance with dynamic chunk loading
 func NewWorld(seed int64) *World {
-	// Start world setup step
-	progress.UpdateCurrentStepProgress(1, "Starting world generation...")
-	time.Sleep(100 * time.Millisecond) // Small delay to make progress visible
-
+	// Step: World Setup
+	progress.UpdateCurrentStepProgress(1, "Setting up world structure...")
 	generation.ResetWorldGeneration(seed)
 	progress.UpdateCurrentStepProgress(2, "Reset world generation")
-	time.Sleep(100 * time.Millisecond)
 
 	w := &World{
-		Chunks:    make(map[ChunkCoord]block.Chunk),
-		Entities:  entity.Entities{},
-		gridDirty: true, // Grid needs initial generation
+		ChunkManager: chunks.NewChunkManager(settings.ChunkViewDistance),
+		Entities:     entity.Entities{},
+		gridDirty:    true,
 	}
 	progress.UpdateCurrentStepProgress(3, "Created world structure")
-	time.Sleep(100 * time.Millisecond)
-
-	// Complete world setup step
 	progress.CompleteCurrentStep()
 
-	// Generate a large fixed world area - no dynamic loading
-	worldWidth := settings.WorldChunksX  // Total chunks horizontally
-	worldHeight := settings.WorldChunksY // Total chunks vertically
-
-	fmt.Printf("DEBUG: WorldChunksX=%d, WorldChunksY=%d\n", worldWidth, worldHeight)
-
-	// Calculate chunk range to center the world around (0,0)
-	halfWidth := worldWidth / 2
-	var startX, endX int
-	if worldWidth%2 == 0 {
-		// Even number of chunks: generate equal chunks on both sides
-		// For 24 chunks: -12 to 11 (24 total)
-		startX = -halfWidth
-		endX = halfWidth - 1
-	} else {
-		// Odd number of chunks: center chunk at 0
-		// For 25 chunks: -12 to 12 (25 total)
-		startX = -halfWidth
-		endX = halfWidth
-	}
-
-	fmt.Printf("DEBUG: Generating chunks from X=%d to X=%d (total: %d chunks)\n", startX, endX, endX-startX+1)
-
-	totalChunks := (endX - startX + 1) * worldHeight
-	generatedChunks := 0
-
-	// Set the substeps for terrain generation based on actual chunk count
-	progress.SetCurrentStepSubSteps(totalChunks, fmt.Sprintf("Generating %d chunks...", totalChunks))
-
-	for cy := 0; cy < worldHeight; cy++ {
-		for cx := startX; cx <= endX; cx++ {
-			coord := ChunkCoord{X: cx, Y: cy}
-			w.Chunks[coord] = GenerateChunk(coord.X, coord.Y)
-			generatedChunks++
-
-			// Update progress for each chunk with a small delay to make it visible
-			progress.UpdateCurrentStepProgress(generatedChunks,
-				fmt.Sprintf("Generated %d/%d chunks", generatedChunks, totalChunks))
-
-			// Add a small delay every few chunks to make progress updates visible
-			if generatedChunks%5 == 0 {
-				time.Sleep(50 * time.Millisecond)
-			}
-		}
-	}
-
-	fmt.Printf("DEBUG: Generated %d chunks total\n", len(w.Chunks))
-
-	// Complete terrain generation step
-	progress.CompleteCurrentStep()
-
-	// Print first few and last few chunk coordinates for verification
-	chunkCount := 0
-	fmt.Printf("DEBUG: First 5 chunks generated: ")
-	for coord := range w.Chunks {
-		if chunkCount < 5 {
-			fmt.Printf("(%d,%d) ", coord.X, coord.Y)
-		}
-		chunkCount++
-	}
-	fmt.Printf("\n")
-
-	// Add player entity at pixel (1, 0) in world coordinates
-	fmt.Printf("DEBUG: Player spawning at pixel (1, 0)\n")
+	// Step: Finding Player Spawn
 	progress.UpdateCurrentStepProgress(1, "Finding spawn location...")
-	time.Sleep(200 * time.Millisecond)
-
-	// Spawn player at pixel (1, 0), which is still in block (0, 0)
-	spawnBlockX := 0
-	spawnBlockY := 0
-
-	// Find the surface height at block X=0 to determine proper Y spawn
-	surfaceY := FindSurfaceHeight(spawnBlockX, w)
-	fmt.Printf("DEBUG: Surface height at X=%d is Y=%d\n", spawnBlockX, surfaceY)
-	progress.UpdateCurrentStepProgress(2, fmt.Sprintf("Surface height: %d", surfaceY))
-	time.Sleep(200 * time.Millisecond)
-
-	// Spawn player 3 blocks above surface for safety
-	spawnBlockY = surfaceY - 3
-
-	// Ensure spawn position is reasonable
-	if spawnBlockY < 5 {
-		spawnBlockY = 5
-	}
-	if spawnBlockY > 200 {
-		spawnBlockY = 200
-	}
-
-	// Convert to pixel coordinates - spawn at exact pixel (1, 0) for X, calculated Y
-	px := 1.0
-	py := float64(spawnBlockY * settings.TileSize)
-
-	fmt.Printf("DEBUG: Final player spawn at pixel position (%f, %f), block position (%d, %d)\n", px, py, spawnBlockX, spawnBlockY)
-
-	w.Entities = append(w.Entities, player.NewPlayer(px, py))
-	progress.UpdateCurrentStepProgress(3, "Created player entity")
-	time.Sleep(200 * time.Millisecond)
-
-	// Complete spawning player step
+	spawnPoint := chunks.FindSafeSpawnPoint()
+	progress.UpdateCurrentStepProgress(2, fmt.Sprintf("Found spawn at (%.1f, %.1f)", spawnPoint.X, spawnPoint.Y))
 	progress.CompleteCurrentStep()
 
-	// Finalize
+	// Step: Spawning Player (before chunk loading)
+	progress.UpdateCurrentStepProgress(1, "Creating player entity...")
+	playerEntity := player.NewPlayer(spawnPoint.X, spawnPoint.Y)
+	w.Entities = append(w.Entities, playerEntity)
+	progress.UpdateCurrentStepProgress(2, "Created player entity")
+	progress.CompleteCurrentStep()
+
+	// Step: Generating Terrain around player
+	progress.UpdateCurrentStepProgress(1, "Loading initial chunks around player...")
+	w.ChunkManager.InitialLoadWithProgress(playerEntity.X, playerEntity.Y)
+	progress.CompleteCurrentStep()
+
+	// Step: Finalizing
 	progress.UpdateCurrentStepProgress(1, "World generation finished!")
-	time.Sleep(300 * time.Millisecond)
 	progress.CompleteCurrentStep()
 
 	return w
@@ -161,19 +66,15 @@ func NewWorld(seed int64) *World {
 // ToIntGrid flattens the world's blocks into a [][]int grid for entity collision, and returns the offset (minX, minY)
 // Uses caching to avoid regenerating the grid every frame
 func (w *World) ToIntGrid() ([][]int, int, int) {
-	if len(w.Chunks) == 0 {
+	allChunks := w.ChunkManager.GetAllChunks()
+	if len(allChunks) == 0 {
 		return [][]int{}, 0, 0
-	}
-
-	// Return cached grid if it's still valid
-	if !w.gridDirty && w.cachedGrid != nil {
-		return w.cachedGrid, w.cachedGridOffsetX, w.cachedGridOffsetY
 	}
 
 	// Regenerate grid only when necessary
 	minX, maxX, minY, maxY := 0, 0, 0, 0
 	first := true
-	for coord := range w.Chunks {
+	for coord := range allChunks {
 		if first {
 			minX, maxX, minY, maxY = coord.X, coord.X, coord.Y, coord.Y
 			first = false
@@ -195,32 +96,27 @@ func (w *World) ToIntGrid() ([][]int, int, int) {
 	width := (maxX - minX + 1) * settings.ChunkWidth
 	height := (maxY - minY + 1) * settings.ChunkHeight
 
-	// Reuse cached grid if dimensions match, otherwise allocate new
-	if w.cachedGrid == nil || len(w.cachedGrid) != height || (height > 0 && len(w.cachedGrid[0]) != width) {
-		w.cachedGrid = make([][]int, height)
-		for y := 0; y < height; y++ {
-			w.cachedGrid[y] = make([]int, width)
-		}
-	}
-
-	grid := w.cachedGrid
+	// Always allocate a new grid to avoid stale data when moving into negative coords
+	grid := make([][]int, height)
 	for y := 0; y < height; y++ {
-		cy := minY + y/settings.ChunkHeight
-		inChunkY := y % settings.ChunkHeight
-		for x := 0; x < width; x++ {
-			cx := minX + x/settings.ChunkWidth
-			inChunkX := x % settings.ChunkWidth
-			coord := ChunkCoord{X: cx, Y: cy}
-			chunk, ok := w.Chunks[coord]
-			if !ok || len(chunk) == 0 {
-				grid[y][x] = int(block.Air)
-				continue
+		grid[y] = make([]int, width)
+	}
+
+	for coord, chunk := range allChunks {
+		for y := 0; y < settings.ChunkHeight; y++ {
+			for x := 0; x < settings.ChunkWidth; x++ {
+				globalX := (coord.X-minX)*settings.ChunkWidth + x
+				globalY := (coord.Y-minY)*settings.ChunkHeight + y
+				if y < len((*chunk)) && x < len((*chunk)[y]) {
+					grid[globalY][globalX] = int((*chunk)[y][x])
+				} else {
+					grid[globalY][globalX] = int(block.Air)
+				}
 			}
-			grid[y][x] = int(chunk[inChunkY][inChunkX])
 		}
 	}
 
-	// Cache the results
+	w.cachedGrid = grid
 	w.cachedGridOffsetX = minX * settings.ChunkWidth
 	w.cachedGridOffsetY = minY * settings.ChunkHeight
 	w.gridDirty = false
@@ -245,71 +141,19 @@ func (w *World) GetCachedGrid() ([][]int, int, int) {
 
 // GetBlockAt returns the block type at the given world coordinates
 func (w *World) GetBlockAt(blockX, blockY int) block.BlockType {
-	chunkX := blockX / settings.ChunkWidth
-	chunkY := blockY / settings.ChunkHeight
-	inChunkX := blockX % settings.ChunkWidth
-	inChunkY := blockY % settings.ChunkHeight
-
-	// Handle negative coordinates properly
-	if blockX < 0 {
-		chunkX = (blockX - settings.ChunkWidth + 1) / settings.ChunkWidth
-		inChunkX = ((blockX % settings.ChunkWidth) + settings.ChunkWidth) % settings.ChunkWidth
-	}
-	if blockY < 0 {
-		chunkY = (blockY - settings.ChunkHeight + 1) / settings.ChunkHeight
-		inChunkY = ((blockY % settings.ChunkHeight) + settings.ChunkHeight) % settings.ChunkHeight
-	}
-
-	coord := ChunkCoord{X: chunkX, Y: chunkY}
-	chunk, exists := w.Chunks[coord]
-	if !exists {
-		return block.Air // Return air for non-existent chunks
-	}
-
-	// Bounds check
-	if inChunkY < 0 || inChunkY >= settings.ChunkHeight || inChunkX < 0 || inChunkX >= settings.ChunkWidth {
-		return block.Air
-	}
-
-	return chunk[inChunkY][inChunkX]
+	return w.ChunkManager.GetBlock(blockX, blockY)
 }
 
 // SetBlockAt sets the block type at the given world coordinates
 func (w *World) SetBlockAt(blockX, blockY int, blockType block.BlockType) bool {
-	chunkX := blockX / settings.ChunkWidth
-	chunkY := blockY / settings.ChunkHeight
-	inChunkX := blockX % settings.ChunkWidth
-	inChunkY := blockY % settings.ChunkHeight
+	success := w.ChunkManager.SetBlock(blockX, blockY, blockType)
 
-	// Handle negative coordinates properly
-	if blockX < 0 {
-		chunkX = (blockX - settings.ChunkWidth + 1) / settings.ChunkWidth
-		inChunkX = ((blockX % settings.ChunkWidth) + settings.ChunkWidth) % settings.ChunkWidth
-	}
-	if blockY < 0 {
-		chunkY = (blockY - settings.ChunkHeight + 1) / settings.ChunkHeight
-		inChunkY = ((blockY % settings.ChunkHeight) + settings.ChunkHeight) % settings.ChunkHeight
+	if success {
+		w.updateCachedGridBlock(blockX, blockY, blockType)
+		// Do NOT always mark gridDirty here; updateCachedGridBlock will do so only if needed
 	}
 
-	coord := ChunkCoord{X: chunkX, Y: chunkY}
-	chunk, exists := w.Chunks[coord]
-	if !exists {
-		return false // Cannot modify non-existent chunks
-	}
-
-	// Bounds check
-	if inChunkY < 0 || inChunkY >= settings.ChunkHeight || inChunkX < 0 || inChunkX >= settings.ChunkWidth {
-		return false
-	}
-
-	// Set the block
-	chunk[inChunkY][inChunkX] = blockType
-	w.Chunks[coord] = chunk // Update the chunk in the map
-
-	// Instead of marking entire grid dirty, update just this block in the cached grid
-	w.updateCachedGridBlock(blockX, blockY, blockType)
-
-	return true
+	return success
 }
 
 // BreakBlock removes a block at the given coordinates
@@ -376,6 +220,48 @@ func (w *World) PlaceBlock(blockX, blockY int, blockType block.BlockType) bool {
 	return w.SetBlockAt(blockX, blockY, blockType)
 }
 
+// Update method to handle dynamic chunk loading
+func (w *World) Update() {
+	// Update chunk loading based on player position
+	if len(w.Entities) > 0 {
+		if player, ok := w.Entities[0].(*player.Player); ok {
+			w.ChunkManager.UpdatePlayerPosition(player.X, player.Y)
+		}
+	}
+}
+
+// GetChunkCount returns the number of currently loaded chunks
+func (w *World) GetChunkCount() int {
+	return w.ChunkManager.GetLoadedChunkCount()
+}
+
+// FindSurfaceHeight finds the surface height at the given X coordinate
+func FindSurfaceHeight(blockX int, w *World) int {
+	// Find which chunk this block belongs to
+	chunkX, _ := chunks.BlockToChunk(blockX, 0)
+
+	// We need to look through multiple chunks vertically to find surface
+	for chunkY := 0; chunkY < 10; chunkY++ { // Search downward through chunks
+		chunk := w.ChunkManager.GetChunk(chunkX, chunkY)
+
+		// Look through this chunk for the surface
+		localX := blockX - (chunkX * settings.ChunkWidth)
+		if localX < 0 || localX >= settings.ChunkWidth {
+			continue
+		}
+
+		for localY := 0; localY < settings.ChunkHeight; localY++ {
+			if chunk[localY][localX] != block.Air {
+				// Found the first non-air block - this is the surface
+				return (chunkY * settings.ChunkHeight) + localY
+			}
+		}
+	}
+
+	// Default surface height if not found
+	return settings.SurfaceBaseHeight
+}
+
 // updateCachedGridBlock efficiently updates a single block in the cached collision grid
 func (w *World) updateCachedGridBlock(blockX, blockY int, blockType block.BlockType) {
 	// Only update if we have a cached grid
@@ -398,4 +284,9 @@ func (w *World) updateCachedGridBlock(blockX, blockY int, blockType block.BlockT
 	w.cachedGrid[gridY][gridX] = int(blockType)
 
 	// Grid is still valid, no need to mark as dirty
+}
+
+// GetChunksForRendering returns all currently loaded chunks for rendering
+func (w *World) GetChunksForRendering() map[chunks.ChunkCoord]*block.Chunk {
+	return w.ChunkManager.GetAllChunks()
 }
