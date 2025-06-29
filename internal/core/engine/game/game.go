@@ -313,3 +313,13 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		ebitenutil.DebugPrint(screen, fpsText)
 	}
 }
+
+// GetFPSHistory returns a slice of the last n FPS values for the debug graph
+func (g *Game) GetFPSHistory(n int) []float64 {
+	if len(g.fpsHistory) < n {
+		// Pad with zeros if not enough data
+		pad := make([]float64, n-len(g.fpsHistory))
+		return append(pad, g.fpsHistory...)
+	}
+	return g.fpsHistory[len(g.fpsHistory)-n:]
+}
