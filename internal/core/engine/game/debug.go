@@ -27,7 +27,7 @@ func (g *Game) drawDebugInfo(screen *ebiten.Image) {
 	memBarColor := color.RGBA{120, 120, 255, 255}
 
 	// Panel size (taller and thinner for more vertical info)
-	w, h := 280, 490 // was 520, 490
+	w, h := 280, 550 // was 520, 340
 	bg := ebiten.NewImage(w, h)
 	bg.Fill(bgColor)
 	// Draw border
@@ -191,33 +191,37 @@ func (g *Game) drawDebugInfo(screen *ebiten.Image) {
 	// Player info (more detail)
 	if len(g.World.Entities) > 0 {
 		if p, ok := g.World.Entities[0].(*player.Player); ok {
-			// Move player info to the left side, below the last stat bar/graph
 			playerInfo := fmt.Sprintf("Player: X=%.2f Y=%.2f\nVX=%.2f VY=%.2f", p.X, p.Y, p.VX, p.VY)
 			// Place at (30, 338) (below GC bar, with padding)
-			ebitenutil.DebugPrintAt(screen, playerInfo, 30, 338)
+			playerY := 338
+			lineSpacing := 28
+			ebitenutil.DebugPrintAt(screen, playerInfo, 30, playerY)
 			chunkX := int(p.X) / (settings.ChunkWidth * settings.TileSize)
 			chunkY := int(p.Y) / (settings.ChunkHeight * settings.TileSize)
 			chunkInfo := fmt.Sprintf("Chunk: %d, %d", chunkX, chunkY)
 			// Place chunk info below player info
-			ebitenutil.DebugPrintAt(screen, chunkInfo, 30, 370)
+			ebitenutil.DebugPrintAt(screen, chunkInfo, 30, playerY+lineSpacing*2)
 			playerStats := fmt.Sprintf("OnGround: %v", p.OnGround)
 			// Place player stats below chunk info
-			ebitenutil.DebugPrintAt(screen, playerStats, 30, 390)
+			ebitenutil.DebugPrintAt(screen, playerStats, 30, playerY+lineSpacing*3)
 		}
 	}
 	// Camera info
 	camInfo := fmt.Sprintf("Camera: X=%.2f Y=%.2f", g.CameraX, g.CameraY)
 	// Move camera info below player stats
-	ebitenutil.DebugPrintAt(screen, camInfo, 30, 410)
+	camY := 338 + 28*4
+	ebitenutil.DebugPrintAt(screen, camInfo, 30, camY)
 	// Seed
 	seedInfo := fmt.Sprintf("Seed: %d", g.Seed)
 	// Move seed info below camera info
-	ebitenutil.DebugPrintAt(screen, seedInfo, 30, 430)
+	seedY := camY + 28
+	ebitenutil.DebugPrintAt(screen, seedInfo, 30, seedY)
 	// World info (show loaded chunk count only)
 	if g.World != nil && g.World.ChunkManager != nil {
 		worldInfo := fmt.Sprintf("Loaded Chunks: %d", g.World.ChunkManager.GetLoadedChunkCount())
 		// Move world info below seed info
-		ebitenutil.DebugPrintAt(screen, worldInfo, 30, 450)
+		worldY := seedY + 28
+		ebitenutil.DebugPrintAt(screen, worldInfo, 30, worldY)
 	}
 
 	// TODO: Add more graphs (tick time, GC, etc.)
