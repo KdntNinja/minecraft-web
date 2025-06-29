@@ -74,16 +74,8 @@ func main() {
 		fs.ServeHTTP(w, r)
 	})
 
-	// Add health check endpoint
-	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"ok","service":"webcraft"}`))
-	})
-
 	fmt.Printf("Starting Webcraft server on port %s\n", port)
 	fmt.Printf("Open http://localhost:%s in your browser\n", port)
-	fmt.Printf("Health check available at http://localhost:%s/health\n", port)
 
 	// Start the server
 	if err := http.ListenAndServe(":"+port, nil); err != nil {
