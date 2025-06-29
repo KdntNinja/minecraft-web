@@ -46,23 +46,34 @@ func GetUndergroundBlock(worldX, worldY, surfaceHeight int, rng *rand.Rand) bloc
 			return block.Dirt
 		}
 	} else if worldY < settings.ChunkHeight*settings.WorldChunksY-15 {
-		// Stone layer with reduced clay and more variety
-		stoneVariation := terrainNoise.Noise2D(float64(worldX)/15.0, float64(worldY)/15.0)
+		// Interwoven stone layers using noise for each type
+		graniteNoise := terrainNoise.Noise2D(float64(worldX)/22.0+100, float64(worldY)/22.0+100)
+		andesiteNoise := terrainNoise.Noise2D(float64(worldX)/22.0+200, float64(worldY)/22.0+200)
+		dioriteNoise := terrainNoise.Noise2D(float64(worldX)/22.0+300, float64(worldY)/22.0+300)
+		slateNoise := terrainNoise.Noise2D(float64(worldX)/22.0+400, float64(worldY)/22.0+400)
 		clayPockets := terrainNoise.Noise2D(float64(worldX)/8.0+500, float64(worldY)/8.0+500)
 
-		// Create clay pockets in stone (reduced frequency)
-		if clayPockets > 0.8 { // Made much rarer (was 0.6)
+		if clayPockets > 0.8 {
 			return block.Clay
-		} else if stoneVariation > 0.4 && depthFromSurface > 15 {
-			// Deeper stone areas can have ash pockets
-			if rng.Float64() < 0.10 { // Reduced ash frequency too
-				return block.Ash
-			} else {
-				return block.Stone
-			}
-		} else {
-			return block.Stone
 		}
+		if graniteNoise > 0.45 {
+			return block.Granite
+		}
+		if andesiteNoise > 0.45 {
+			return block.Andesite
+		}
+		if dioriteNoise > 0.45 {
+			return block.Diorite
+		}
+		if slateNoise > 0.45 {
+			return block.Slate
+		}
+		// Ash pockets in deeper stone
+		stoneVariation := terrainNoise.Noise2D(float64(worldX)/15.0, float64(worldY)/15.0)
+		if stoneVariation > 0.4 && depthFromSurface > 15 && rng.Float64() < 0.10 {
+			return block.Ash
+		}
+		return block.Stone
 	} else if worldY < settings.ChunkHeight*settings.WorldChunksY-5 {
 		// Deep underground transition zone
 		deepNoise := terrainNoise.Noise2D(float64(worldX)/20.0, float64(worldY)/20.0)

@@ -42,6 +42,10 @@ var BlockTextureConfigs = map[block.BlockType]BlockTextureConfig{
 	block.Water:     {Filename: "water.png", Coord: AtlasCoord{X: 1, Y: 1}},
 	block.Ash:       {Filename: "clay.png", Coord: AtlasCoord{X: 0, Y: 1}},
 	block.Hellstone: {Filename: "goldore.png", Coord: AtlasCoord{X: 0, Y: 0}},
+	block.Granite:   {Filename: "stone.png", Coord: AtlasCoord{X: 0, Y: 0}}, // Use stone.png, different tile/tint
+	block.Andesite:  {Filename: "stone.png", Coord: AtlasCoord{X: 0, Y: 0}}, // Use stone.png, different tile/tint
+	block.Diorite:   {Filename: "stone.png", Coord: AtlasCoord{X: 0, Y: 0}}, // Use stone.png, different tile/tint
+	block.Slate:     {Filename: "stone.png", Coord: AtlasCoord{X: 0, Y: 0}}, // Use stone.png, different tile/tint
 }
 
 // LoadTextures loads all block textures from their individual atlas files
@@ -58,6 +62,17 @@ func LoadTextures(tileSize int) error {
 		if err != nil {
 			log.Printf("Warning: Could not load texture %s for block %v: %v", config.Filename, blockType, err)
 			continue
+		}
+		// Tint stone variants
+		switch blockType {
+		case block.Granite:
+			texture = tintImage(texture, 1.15, 0.95, 0.85) // Warm pinkish
+		case block.Andesite:
+			texture = tintImage(texture, 0.85, 0.9, 1.1) // Cool bluish
+		case block.Diorite:
+			texture = tintImage(texture, 1.2, 1.2, 1.2) // Bright white
+		case block.Slate:
+			texture = tintImage(texture, 0.6, 0.6, 0.7) // Dark gray
 		}
 		BlockTextures[blockType] = texture
 	}
@@ -127,4 +142,17 @@ func GetBlockTexture(blockType block.BlockType) *ebiten.Image {
 		return nil
 	}
 	return BlockTextures[blockType]
+}
+
+// tintImage applies a simple RGB multiplier to an ebiten.Image
+func tintImage(img *ebiten.Image, r, g, b float64) *ebiten.Image {
+	if img == nil {
+		return nil
+	}
+	w, h := img.Size()
+	tinted := ebiten.NewImage(w, h)
+	opts := &ebiten.DrawImageOptions{}
+	opts.ColorM.Scale(r, g, b, 1)
+	tinted.DrawImage(img, opts)
+	return tinted
 }

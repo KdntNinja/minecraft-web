@@ -12,6 +12,10 @@ const (
 	Clay
 	// Stone variants
 	Stone
+	Granite  // Underground stone variant: gray-pink
+	Andesite // Underground stone variant: bluish-gray
+	Diorite  // Underground stone variant: white-gray
+	Slate    // Underground stone variant: dark gray
 	// Ore blocks
 	CopperOre
 	IronOre

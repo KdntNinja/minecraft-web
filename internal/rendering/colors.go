@@ -17,6 +17,14 @@ func getBlockColorFast(blockType block.BlockType) color.RGBA {
 		return color.RGBA{168, 85, 65, 255} // Reddish brown
 	case block.Stone:
 		return color.RGBA{100, 100, 100, 255} // Gray
+	case block.Granite:
+		return color.RGBA{145, 110, 95, 255} // Gray-pink
+	case block.Andesite:
+		return color.RGBA{120, 130, 140, 255} // Bluish-gray
+	case block.Diorite:
+		return color.RGBA{200, 200, 200, 255} // White-gray
+	case block.Slate:
+		return color.RGBA{60, 60, 70, 255} // Dark gray
 	case block.CopperOre:
 		return color.RGBA{184, 115, 51, 255} // Orange-brown
 	case block.IronOre:
