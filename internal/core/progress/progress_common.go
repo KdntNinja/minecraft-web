@@ -1,5 +1,7 @@
 package progress
 
+import "time"
+
 // ProgressStep represents a single step in the loading process
 type ProgressStep struct {
 	Name        string  // Name of the step
@@ -59,6 +61,7 @@ func UpdateCurrentStepProgress(currentSub int, description string) {
 		globalTracker.Steps[globalTracker.CurrentStep].CurrentSub = currentSub
 		globalTracker.Steps[globalTracker.CurrentStep].Description = description
 		globalTracker.CurrentMessage = description
+		time.Sleep(100 * time.Millisecond) // Short pause to simulate loading
 		updateUI()
 	}
 }
