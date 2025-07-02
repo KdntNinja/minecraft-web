@@ -9,7 +9,7 @@ const (
 	PlayerMoveSpeed      = 4.3                  // Maximum horizontal walking speed (blocks/sec).
 	PlayerJumpSpeed      = -9.0                 // Initial vertical jump velocity (upwards).
 	PlayerGravity        = 0.45                 // Gravity force applied each frame.
-	PlayerMaxFallSpeed   = 8.0                  // Maximum downward velocity (terminal velocity).
+	PlayerMaxFallSpeed   = 16.0                  // Maximum downward velocity (terminal velocity).
 
 	// --- Movement Tuning ---
 	PlayerWalkAccel      = 0.25                  // Acceleration when walking on the ground.
