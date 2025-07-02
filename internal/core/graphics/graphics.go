@@ -5,6 +5,7 @@ import (
 	"image"
 	_ "image/png"
 	"log"
+	"sync"
 
 	"github.com/hajimehoshi/ebiten/v2"
 
@@ -56,29 +57,36 @@ func LoadTextures(tileSize int) error {
 
 	BlockTextures = make(map[block.BlockType]*ebiten.Image)
 
-	// Load texture for each block type from its individual atlas file
+	var wg sync.WaitGroup
+	var mu sync.Mutex
 	for blockType, config := range BlockTextureConfigs {
-		texture, err := loadTextureFromAtlas(config.Filename, config.Coord, tileSize)
-		if err != nil {
-			log.Printf("Warning: Could not load texture %s for block %v: %v", config.Filename, blockType, err)
-			continue
-		}
-		// Tint stone variants and gold ore
-		switch blockType {
-		case block.Granite:
-			texture = tintImage(texture, 1.15, 0.95, 0.85) // Warm pinkish
-		case block.Andesite:
-			texture = tintImage(texture, 0.85, 0.9, 1.1) // Cool bluish
-		case block.Diorite:
-			texture = tintImage(texture, 1.2, 1.2, 1.2) // Bright white
-		case block.Slate:
-			texture = tintImage(texture, 0.6, 0.6, 0.7) // Dark gray
-		case block.GoldOre:
-			texture = tintImage(texture, 2.0, 2.0, 0.3) // Strong yellow tint
-		}
-		BlockTextures[blockType] = texture
+		wg.Add(1)
+		go func(blockType block.BlockType, config BlockTextureConfig) {
+			defer wg.Done()
+			texture, err := loadTextureFromAtlas(config.Filename, config.Coord, tileSize)
+			if err != nil {
+				log.Printf("Warning: Could not load texture %s for block %v: %v", config.Filename, blockType, err)
+				return
+			}
+			// Tint stone variants and gold ore
+			switch blockType {
+			case block.Granite:
+				texture = tintImage(texture, 1.15, 0.95, 0.85) // Warm pinkish
+			case block.Andesite:
+				texture = tintImage(texture, 0.85, 0.9, 1.1) // Cool bluish
+			case block.Diorite:
+				texture = tintImage(texture, 1.2, 1.2, 1.2) // Bright white
+			case block.Slate:
+				texture = tintImage(texture, 0.6, 0.6, 0.7) // Dark gray
+			case block.GoldOre:
+				texture = tintImage(texture, 2.0, 2.0, 0.3) // Strong yellow tint
+			}
+			mu.Lock()
+			BlockTextures[blockType] = texture
+			mu.Unlock()
+		}(blockType, config)
 	}
-
+	wg.Wait()
 	log.Printf("Graphics textures loaded successfully: %d block textures", len(BlockTextures))
 	return nil
 }

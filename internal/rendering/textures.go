@@ -2,6 +2,7 @@ package rendering
 
 import (
 	"log"
+	"sync"
 
 	"github.com/hajimehoshi/ebiten/v2"
 
@@ -65,15 +66,23 @@ func initFallbackTextures() {
 	tileImages = make(map[block.BlockType]*ebiten.Image)
 	batchRenderer = &ebiten.DrawImageOptions{}
 
-	// Create tile images for all block types using solid colors
+	var wg sync.WaitGroup
+	var mu sync.Mutex
 	for blockType := block.Air; blockType <= block.Hellstone; blockType++ {
 		if blockType == block.Air {
 			continue // Skip air blocks
 		}
-		tile := ebiten.NewImage(settings.TileSize, settings.TileSize)
-		tile.Fill(getBlockColorFast(blockType))
-		tileImages[blockType] = tile
+		wg.Add(1)
+		go func(bt block.BlockType) {
+			defer wg.Done()
+			tile := ebiten.NewImage(settings.TileSize, settings.TileSize)
+			tile.Fill(getBlockColorFast(bt))
+			mu.Lock()
+			tileImages[bt] = tile
+			mu.Unlock()
+		}(blockType)
 	}
+	wg.Wait()
 
 	isInitialized = true
 	log.Printf("Fallback color-based texture system initialized")

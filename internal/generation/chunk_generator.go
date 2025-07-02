@@ -3,6 +3,7 @@ package generation
 import (
 	"fmt"
 	"math/rand"
+	"sync"
 
 	"github.com/KdntNinja/webcraft/internal/core/engine/block"
 	"github.com/KdntNinja/webcraft/internal/core/settings"
@@ -37,83 +38,81 @@ func GenerateChunk(chunkX, chunkY int) block.Chunk {
 		}
 	}
 
-	// Generate terrain for each column in the chunk
+	// Generate terrain for each column in the chunk (parallelized)
+	var wg1 sync.WaitGroup
 	for x := 0; x < settings.ChunkWidth; x++ {
-		worldX := chunkWorldX + x
-		surfaceHeight := GetHeightAt(worldX)
+		wg1.Add(1)
+		go func(x int) {
+			defer wg1.Done()
+			worldX := chunkWorldX + x
+			surfaceHeight := GetHeightAt(worldX)
 
-		// Generate each block in this column from top to bottom (Y=0 is top)
-		for chunkLocalY := 0; chunkLocalY < settings.ChunkHeight; chunkLocalY++ {
-			// Calculate world Y coordinate (Y=0 is top of world)
-			worldY := chunkWorldY + chunkLocalY
-
-			var blockType block.BlockType
-
-			if worldY < surfaceHeight {
-				// Above surface - air (already initialized)
-				continue
-			} else if worldY == surfaceHeight {
-				// Check for surface cave entrances first
-				if IsSurfaceCaveEntrance(worldX, worldY) {
-					blockType = block.Air
-				} else {
-					// Surface layer - always grass on top of dirt/earth
-					blockType = GetSurfaceBlockType(worldX)
-				}
-			} else if worldY <= surfaceHeight+4 {
-				// Check for cave entrances in shallow underground too
-				if IsSurfaceCaveEntrance(worldX, worldY) {
-					blockType = block.Air
-				} else {
-					// Shallow underground - determine dirt/clay layers
-					blockType = GetShallowUndergroundBlock(worldX, worldY)
-				}
-			} else {
-				// Underground - check for caves first
-				if IsCave(worldX, worldY) {
-					// Check for large caverns
-					if IsLargeCavern(worldX, worldY) {
-						// Large caverns might have water at the bottom
-						if GetCaveWaterLevel(worldX, worldY) {
-							blockType = block.Water
-						} else {
-							blockType = block.Air
-						}
+			// Generate each block in this column from top to bottom (Y=0 is top)
+			for chunkLocalY := 0; chunkLocalY < settings.ChunkHeight; chunkLocalY++ {
+				worldY := chunkWorldY + chunkLocalY
+				var blockType block.BlockType
+				if worldY < surfaceHeight {
+					// Above surface - air (already initialized)
+					continue
+				} else if worldY == surfaceHeight {
+					if IsSurfaceCaveEntrance(worldX, worldY) {
+						blockType = block.Air
 					} else {
-						// Regular caves - check for liquid pools
-						liquidType := IsLiquid(worldX, worldY)
-						if liquidType > 0 {
-							blockType = block.Water // Use water for any liquid type for now
-						} else {
-							blockType = block.Air
-						}
+						blockType = GetSurfaceBlockType(worldX)
+					}
+				} else if worldY <= surfaceHeight+4 {
+					if IsSurfaceCaveEntrance(worldX, worldY) {
+						blockType = block.Air
+					} else {
+						blockType = GetShallowUndergroundBlock(worldX, worldY)
 					}
 				} else {
-					// Determine underground block type
-					blockType = GetUndergroundBlock(worldX, worldY, surfaceHeight, rng)
+					if IsCave(worldX, worldY) {
+						if IsLargeCavern(worldX, worldY) {
+							if GetCaveWaterLevel(worldX, worldY) {
+								blockType = block.Water
+							} else {
+								blockType = block.Air
+							}
+						} else {
+							liquidType := IsLiquid(worldX, worldY)
+							if liquidType > 0 {
+								blockType = block.Water
+							} else {
+								blockType = block.Air
+							}
+						}
+					} else {
+						blockType = GetUndergroundBlock(worldX, worldY, surfaceHeight, rng)
+					}
 				}
+				chunk[chunkLocalY][x] = blockType
 			}
-
-			// Set the block in the chunk
-			chunk[chunkLocalY][x] = blockType
-		}
+		}(x)
 	}
+	wg1.Wait()
 
-	// Generate trees in a separate pass to avoid coordinate confusion
+	// Generate trees in a separate pass to avoid coordinate confusion (parallelized)
+	var wg2 sync.WaitGroup
 	for x := 0; x < settings.ChunkWidth; x++ {
-		worldX := chunkWorldX + x
-		surfaceHeight := GetHeightAt(worldX)
-		surfaceChunkY := surfaceHeight - chunkWorldY
+		wg2.Add(1)
+		go func(x int) {
+			defer wg2.Done()
+			worldX := chunkWorldX + x
+			surfaceHeight := GetHeightAt(worldX)
+			surfaceChunkY := surfaceHeight - chunkWorldY
 
-		// Check if surface is in this chunk and is grass
-		if surfaceChunkY >= 0 && surfaceChunkY < settings.ChunkHeight &&
-			chunk[surfaceChunkY][x] == block.Grass &&
-			rng.Float64() < settings.TreeChance &&
-			x > 0 && x < settings.ChunkWidth-1 {
+			// Check if surface is in this chunk and is grass
+			if surfaceChunkY >= 0 && surfaceChunkY < settings.ChunkHeight &&
+				chunk[surfaceChunkY][x] == block.Grass &&
+				rng.Float64() < settings.TreeChance &&
+				x > 0 && x < settings.ChunkWidth-1 {
 
-			trees.GenerateTreeAtPosition(&chunk, x, surfaceChunkY, rng)
-		}
+				trees.GenerateTreeAtPosition(&chunk, x, surfaceChunkY, rng)
+			}
+		}(x)
 	}
+	wg2.Wait()
 
 	fmt.Printf("CHUNK_GEN: Completed chunk (%d, %d) with Perlin noise terrain\n", chunkX, chunkY)
 	return chunk

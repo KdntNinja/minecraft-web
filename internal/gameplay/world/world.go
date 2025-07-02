@@ -2,6 +2,7 @@ package world
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/KdntNinja/webcraft/internal/core/engine/block"
 	"github.com/KdntNinja/webcraft/internal/core/physics/entity"
@@ -102,19 +103,25 @@ func (w *World) ToIntGrid() ([][]int, int, int) {
 		grid[y] = make([]int, width)
 	}
 
+	var wg sync.WaitGroup
 	for coord, chunk := range allChunks {
-		for y := 0; y < settings.ChunkHeight; y++ {
-			for x := 0; x < settings.ChunkWidth; x++ {
-				globalX := (coord.X-minX)*settings.ChunkWidth + x
-				globalY := (coord.Y-minY)*settings.ChunkHeight + y
-				if y < len((*chunk)) && x < len((*chunk)[y]) {
-					grid[globalY][globalX] = int((*chunk)[y][x])
-				} else {
-					grid[globalY][globalX] = int(block.Air)
+		wg.Add(1)
+		go func(coord chunks.ChunkCoord, chunk *block.Chunk) {
+			defer wg.Done()
+			for y := 0; y < settings.ChunkHeight; y++ {
+				for x := 0; x < settings.ChunkWidth; x++ {
+					globalX := (coord.X-minX)*settings.ChunkWidth + x
+					globalY := (coord.Y-minY)*settings.ChunkHeight + y
+					if y < len((*chunk)) && x < len((*chunk)[y]) {
+						grid[globalY][globalX] = int((*chunk)[y][x])
+					} else {
+						grid[globalY][globalX] = int(block.Air)
+					}
 				}
 			}
-		}
+		}(coord, chunk)
 	}
+	wg.Wait()
 
 	w.cachedGrid = grid
 	w.cachedGridOffsetX = minX * settings.ChunkWidth
@@ -228,6 +235,17 @@ func (w *World) Update() {
 			w.ChunkManager.UpdatePlayerPosition(player.X, player.Y)
 		}
 	}
+
+	// Parallel entity updates for physics and logic
+	var wg sync.WaitGroup
+	for _, e := range w.Entities {
+		wg.Add(1)
+		go func(ent entity.Entity) {
+			defer wg.Done()
+			ent.Update()
+		}(e)
+	}
+	wg.Wait()
 }
 
 // GetChunkCount returns the number of currently loaded chunks

@@ -189,21 +189,24 @@ func (cm *ChunkManager) InitialLoadWithProgress(spawnX, spawnY float64) {
 	// Set progress for initial chunk loading
 	progress.SetCurrentStepSubSteps(totalChunks, fmt.Sprintf("Loading %d initial chunks...", totalChunks))
 
-	// Load chunks around spawn point
+	// Load chunks around spawn point in parallel
+	var wg sync.WaitGroup
 	for dx := -cm.viewDistance; dx <= cm.viewDistance; dx++ {
 		for dy := -cm.viewDistance; dy <= cm.viewDistance; dy++ {
 			chunkX := spawnChunkX + dx
 			chunkY := spawnChunkY + dy
-
-			cm.GetChunk(chunkX, chunkY)
+			wg.Add(1)
+			go func(chunkX, chunkY int) {
+				defer wg.Done()
+				cm.GetChunk(chunkX, chunkY)
+			}(chunkX, chunkY)
 			generatedChunks++
-
 			// Update progress for each chunk
 			progress.UpdateCurrentStepProgress(generatedChunks,
 				fmt.Sprintf("Loaded chunk %d/%d at (%d, %d)", generatedChunks, totalChunks, chunkX, chunkY))
 		}
 	}
-
+	wg.Wait()
 	cm.lastPlayerChunk = ChunkCoord{X: spawnChunkX, Y: spawnChunkY}
 }
 
