@@ -9,16 +9,16 @@ import (
 type Player struct {
 	entity.AABB
 	entity.InputState
-	wasOnGround         bool            // Previous frame ground state
-	SelectedBlock       block.BlockType // Currently selected block type for placing
-	InteractionRange    float64         // Maximum range for block interaction
-	LastInteractionTime int             // Frame counter for interaction cooldown
-	InteractionCooldown int             // Cooldown frames between interactions (faster than inpututil)
-	World               WorldBlockGetter // Use concrete interface for better performance
-	Health              int             // Player health
-	MaxHealth           int             // Maximum health
+	wasOnGround         bool                     // Previous frame ground state
+	SelectedBlock       block.BlockType          // Currently selected block type for placing
+	InteractionRange    float64                  // Maximum range for block interaction
+	LastInteractionTime int                      // Frame counter for interaction cooldown
+	InteractionCooldown int                      // Cooldown frames between interactions (faster than inpututil)
+	World               WorldBlockGetter         // Use concrete interface for better performance
+	Health              int                      // Player health
+	MaxHealth           int                      // Maximum health
 	Inventory           [block.NumBlockTypes]int // Use array for fast inventory access
-	IsSprinting         bool            // Sprinting state
+	IsSprinting         bool                     // Sprinting state
 }
 
 // WorldBlockGetter is a minimal interface for world block access (concrete, not anonymous)
@@ -28,8 +28,8 @@ type WorldBlockGetter interface {
 
 func NewPlayer(x, y float64, world WorldBlockGetter) *Player {
 	// Center collider horizontally in sprite, bottom-aligned
-	colliderX := x + float64(settings.PlayerWidth-settings.PlayerColliderWidth)/2
-	colliderY := y + float64(settings.PlayerHeight-settings.PlayerColliderHeight)
+	colliderX := x + float64(settings.PlayerSpriteWidth-settings.PlayerColliderWidth)/2
+	colliderY := y + float64(settings.PlayerSpriteHeight-settings.PlayerColliderHeight)
 	p := &Player{
 		AABB: entity.AABB{
 			X:      colliderX,
@@ -64,23 +64,16 @@ func (p *Player) Update() {
 	// Process input and update movement (without camera-dependent interactions)
 	isMoving, targetVX, jumpKeyPressed, _ := p.HandleInput(0, 0)
 
-	// Sprinting mechanic: hold Shift to sprint
-	p.IsSprinting = false // (Handled in input, but reset here for safety)
-
 	// Only update input state if jump key state changed
 	if jumpKeyPressed != p.InputState.JumpPressed {
 		p.InputState.UpdateInputState(jumpKeyPressed, p.OnGround)
-	}
-
-	// Apply sprint speed boost
-	if isMoving && p.IsSprinting {
-		targetVX *= 1.5 // Sprint speed multiplier
 	}
 
 	p.ApplyMovement(isMoving, targetVX)
 	p.HandleJump()
 	p.ApplyGravity()
 }
+
 // TakeDamage reduces player health and clamps to zero
 func (p *Player) TakeDamage(amount int) {
 	p.Health -= amount

@@ -26,6 +26,8 @@ const (
 
 // HandleInput processes keyboard and mouse input and returns movement intentions and block interactions
 func (p *Player) HandleInput(cameraX, cameraY float64) (isMoving bool, targetVX float64, jumpKeyPressed bool, blockInteraction *BlockInteraction) {
+	// Sneak (hold Shift)
+	p.InputState.SneakPressed = ebiten.IsKeyPressed(ebiten.KeyShift) || ebiten.IsKeyPressed(ebiten.KeyShiftLeft) || ebiten.IsKeyPressed(ebiten.KeyShiftRight)
 	isMoving = false
 	targetVX = 0.0
 

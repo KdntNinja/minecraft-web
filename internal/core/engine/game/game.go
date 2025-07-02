@@ -99,7 +99,7 @@ func NewGame() *Game {
 	progress.UpdateCurrentStepProgress(3, "Reset generation systems")
 
 	// Pre-allocate player image to avoid recreating it every frame
-	g.playerImage = ebiten.NewImage(settings.PlayerWidth, settings.PlayerHeight)
+	g.playerImage = ebiten.NewImage(settings.PlayerSpriteWidth, settings.PlayerSpriteHeight)
 	g.playerImage.Fill(color.RGBA{255, 255, 0, 255}) // Yellow
 	progress.UpdateCurrentStepProgress(4, "Created player graphics")
 
@@ -114,8 +114,8 @@ func NewGame() *Game {
 	if len(g.World.Entities) > 0 {
 		if player, ok := g.World.Entities[0].(*player.Player); ok {
 			// Center camera more tightly on the player for a zoomed-in feel
-			g.CameraX = player.X + float64(settings.PlayerWidth)/2 - float64(g.LastScreenW)/2
-			g.CameraY = player.Y + float64(settings.PlayerHeight)/2 - float64(g.LastScreenH)/2 - float64(settings.TileSize*2) // Offset upward slightly
+			g.CameraX = player.X + float64(settings.PlayerSpriteWidth)/2 - float64(g.LastScreenW)/2
+			g.CameraY = player.Y + float64(settings.PlayerSpriteHeight)/2 - float64(g.LastScreenH)/2 - float64(settings.TileSize*2) // Offset upward slightly
 		}
 	}
 
@@ -174,7 +174,12 @@ func (g *Game) Update() error {
 			// Handle block interactions separately
 			blockInteraction := p.HandleBlockInteractions(g.CameraX, g.CameraY)
 			if blockInteraction != nil {
-				g.handleBlockInteraction(p, blockInteraction)
+				switch blockInteraction.Type {
+				case player.BreakBlock:
+					g.World.BreakBlock(blockInteraction.BlockX, blockInteraction.BlockY)
+				case player.PlaceBlock:
+					g.World.PlaceBlock(blockInteraction.BlockX, blockInteraction.BlockY, p.SelectedBlock)
+				}
 			}
 
 			// Use cached physics world
@@ -272,17 +277,24 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	// Draw only entities near the camera/screen for performance
 	for _, e := range g.World.Entities {
 		if p, ok := e.(*player.Player); ok {
-			// Use pre-calculated camera bounds
 			if p.X+float64(settings.PlayerColliderWidth) < camLeft || p.X > camRight ||
 				p.Y+float64(settings.PlayerColliderHeight) < camTop || p.Y > camBottom {
-				continue // Skip entities far from view
+				continue
 			}
-			// Center sprite horizontally and bottom-align vertically over collider
-			px := int(p.X - g.CameraX - float64(settings.PlayerWidth-settings.PlayerColliderWidth)/2)
-			py := int(p.Y - g.CameraY - float64(settings.PlayerHeight-settings.PlayerColliderHeight))
-			if px > -settings.PlayerWidth && px < g.LastScreenW && py > -settings.PlayerHeight && py < g.LastScreenH {
-				// Reuse the DrawImageOptions instead of creating new ones
+			px := int(p.X - g.CameraX - float64(settings.PlayerSpriteWidth-settings.PlayerColliderWidth)/2)
+			py := int(p.Y - g.CameraY - float64(settings.PlayerSpriteHeight-settings.PlayerColliderHeight))
+			if px > -settings.PlayerSpriteWidth && px < g.LastScreenW && py > -settings.PlayerSpriteHeight && py < g.LastScreenH {
 				op.GeoM.Reset()
+				// --- Player animation: sneak and sprint ---
+				if p.InputState.SneakPressed {
+					// Sneaking: scale Y, move down
+					op.GeoM.Scale(1, 0.6)
+					op.GeoM.Translate(0, float64(settings.PlayerSpriteHeight)*0.4) // Lower the sprite
+				} else if p.IsSprinting {
+					// Sprinting: slight forward lean (skew/rotate)
+					op.GeoM.Rotate(-0.18) // Lean forward
+					op.GeoM.Translate(float64(settings.PlayerSpriteWidth)*0.08, float64(settings.PlayerSpriteHeight)*0.08)
+				}
 				op.GeoM.Translate(float64(px), float64(py))
 				screen.DrawImage(g.playerImage, &op)
 			}

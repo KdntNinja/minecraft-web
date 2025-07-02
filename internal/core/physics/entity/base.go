@@ -52,6 +52,8 @@ type InputState struct {
 	WasJumpPressed   bool // Previous jump key state
 	LastGroundedTime int  // Frames since last grounded
 	LastJumpPressed  int  // Frames since jump was pressed (for jump buffer)
+	SneakPressed     bool // Whether sneak (shift) is held
+	JumpHoldTime     int  // Frames jump has been held for variable jump height
 }
 
 // UpdateInputState updates input state tracking
