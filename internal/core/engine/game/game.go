@@ -317,7 +317,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	// Display currently selected block and controls
 	if len(g.World.Entities) > 0 {
 		if player, ok := g.World.Entities[0].(*player.Player); ok {
-			selectedBlockText := fmt.Sprintf("\nSelected Block: %v", player.SelectedBlock)
+			selectedBlockText := fmt.Sprintf("\nSelected Block: %s", player.SelectedBlock.String())
 			controlsText := "\nControls:\n Left Click = Break\n Right Click = Place"
 			numbersText := "\nBlocks:\n 1=Grass\n 2=Dirt\n 3=Clay\n 4=Stone\n 5=Copper\n 6=Iron\n 7=Gold\n 8=Ash\n 9=Wood\n 0=Leaves\n"
 			uiText := fpsText + selectedBlockText + controlsText + numbersText
