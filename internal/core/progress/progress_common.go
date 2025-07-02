@@ -61,7 +61,13 @@ func UpdateCurrentStepProgress(currentSub int, description string) {
 		globalTracker.Steps[globalTracker.CurrentStep].CurrentSub = currentSub
 		globalTracker.Steps[globalTracker.CurrentStep].Description = description
 		globalTracker.CurrentMessage = description
-		time.Sleep(100 * time.Millisecond) // Short pause to simulate loading
+		percentage := calculateCurrentPercentage()
+		// Sleep duration decreases as percentage increases (max 200ms, min 10ms)
+		sleepMs := 200 - int(float64(percentage)*1.9)
+		if sleepMs < 10 {
+			sleepMs = 10
+		}
+		time.Sleep(time.Duration(sleepMs) * time.Millisecond)
 		updateUI()
 	}
 }
@@ -81,7 +87,6 @@ func CompleteCurrentStep() {
 			globalTracker.CurrentStage = nextStep.Name
 			globalTracker.CurrentMessage = nextStep.Description
 		}
-
 		updateUI()
 	}
 }
