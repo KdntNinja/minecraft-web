@@ -21,18 +21,40 @@ type ChunkCoord struct {
 type ChunkManager struct {
 	chunks          map[ChunkCoord]*block.Chunk
 	loadedChunks    map[ChunkCoord]bool
+	generating      map[ChunkCoord]bool // Track chunks being generated
+	chunkQueue      chan chunkResult    // Channel for async chunk results
 	mutex           sync.RWMutex
 	viewDistance    int // Chunks to keep loaded around player
 	lastPlayerChunk ChunkCoord
 }
 
 // NewChunkManager creates a new chunk manager
+type chunkResult struct {
+	coord ChunkCoord
+	chunk *block.Chunk
+}
+
 func NewChunkManager(viewDistance int) *ChunkManager {
-	return &ChunkManager{
+	cm := &ChunkManager{
 		chunks:          make(map[ChunkCoord]*block.Chunk),
 		loadedChunks:    make(map[ChunkCoord]bool),
+		generating:      make(map[ChunkCoord]bool),
+		chunkQueue:      make(chan chunkResult, 32),
 		viewDistance:    viewDistance,
 		lastPlayerChunk: ChunkCoord{X: math.MaxInt32, Y: math.MaxInt32}, // Force initial load
+	}
+	go cm.chunkInsertWorker()
+	return cm
+}
+
+// chunkInsertWorker runs in the background and inserts generated chunks into the map
+func (cm *ChunkManager) chunkInsertWorker() {
+	for res := range cm.chunkQueue {
+		cm.mutex.Lock()
+		cm.chunks[res.coord] = res.chunk
+		cm.loadedChunks[res.coord] = true
+		delete(cm.generating, res.coord)
+		cm.mutex.Unlock()
 	}
 }
 
@@ -42,28 +64,28 @@ func (cm *ChunkManager) GetChunk(chunkX, chunkY int) *block.Chunk {
 
 	cm.mutex.RLock()
 	chunk, exists := cm.chunks[coord]
+	generating := cm.generating[coord]
 	cm.mutex.RUnlock()
 
 	if exists {
 		return chunk
 	}
-
-	// Generate the chunk
-	cm.mutex.Lock()
-	defer cm.mutex.Unlock()
-
-	// Double-check after acquiring write lock
-	if chunk, exists := cm.chunks[coord]; exists {
-		return chunk
+	if generating {
+		return nil // Still generating, return nil for now
 	}
 
-	// Generate new chunk
-	newChunk := generation.GenerateChunk(chunkX, chunkY)
-	cm.chunks[coord] = &newChunk
-	cm.loadedChunks[coord] = true
-
-	fmt.Printf("CHUNK_MANAGER: Generated chunk (%d, %d)\n", chunkX, chunkY)
-	return &newChunk
+	// Mark as generating and start async generation
+	cm.mutex.Lock()
+	if _, already := cm.generating[coord]; !already {
+		cm.generating[coord] = true
+		go func(cx, cy int, c ChunkCoord) {
+			newChunk := generation.GenerateChunk(cx, cy)
+			cm.chunkQueue <- chunkResult{coord: c, chunk: &newChunk}
+			fmt.Printf("CHUNK_MANAGER: Generated chunk (%d, %d) [async]\n", cx, cy)
+		}(chunkX, chunkY, coord)
+	}
+	cm.mutex.Unlock()
+	return nil // Not ready yet
 }
 
 // UpdatePlayerPosition updates the chunk loading based on player position
@@ -104,9 +126,10 @@ func (cm *ChunkManager) loadChunksAroundPlayer(playerChunkX, playerChunkY int) {
 
 			cm.mutex.RLock()
 			_, exists := cm.chunks[coord]
+			generating := cm.generating[coord]
 			cm.mutex.RUnlock()
 
-			if !exists {
+			if !exists && !generating {
 				chunksToLoad = append(chunksToLoad, coord)
 			}
 		}
@@ -115,7 +138,7 @@ func (cm *ChunkManager) loadChunksAroundPlayer(playerChunkX, playerChunkY int) {
 	// Only load up to MaxChunksPerFrame per call to reduce stutter
 	for i := 0; i < len(chunksToLoad) && i < MaxChunksPerFrame; i++ {
 		coord := chunksToLoad[i]
-		go cm.GetChunk(coord.X, coord.Y)
+		cm.GetChunk(coord.X, coord.Y) // Will start async generation if not present
 		loadCount++
 	}
 

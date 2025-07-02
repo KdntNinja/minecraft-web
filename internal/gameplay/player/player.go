@@ -14,18 +14,23 @@ type Player struct {
 	InteractionRange    float64         // Maximum range for block interaction
 	LastInteractionTime int             // Frame counter for interaction cooldown
 	InteractionCooldown int             // Cooldown frames between interactions (faster than inpututil)
-	World               interface {     // Reference to world for block checks
-		GetBlockAt(x, y int) block.BlockType
-	}
+	World               WorldBlockGetter // Use concrete interface for better performance
+	Health              int             // Player health
+	MaxHealth           int             // Maximum health
+	Inventory           [block.NumBlockTypes]int // Use array for fast inventory access
+	IsSprinting         bool            // Sprinting state
 }
 
-func NewPlayer(x, y float64, world interface {
+// WorldBlockGetter is a minimal interface for world block access (concrete, not anonymous)
+type WorldBlockGetter interface {
 	GetBlockAt(x, y int) block.BlockType
-}) *Player {
+}
+
+func NewPlayer(x, y float64, world WorldBlockGetter) *Player {
 	// Center collider horizontally in sprite, bottom-aligned
 	colliderX := x + float64(settings.PlayerWidth-settings.PlayerColliderWidth)/2
 	colliderY := y + float64(settings.PlayerHeight-settings.PlayerColliderHeight)
-	return &Player{
+	p := &Player{
 		AABB: entity.AABB{
 			X:      colliderX,
 			Y:      colliderY,
@@ -36,24 +41,76 @@ func NewPlayer(x, y float64, world interface {
 		InteractionRange:    float64(settings.TileSize * 4), // 4 block radius
 		InteractionCooldown: 0,                              // 3 frames cooldown (about 0.05 seconds at 60fps)
 		World:               world,
+		Health:              100,
+		MaxHealth:           100,
+		IsSprinting:         false,
 	}
+	// Inventory array is zeroed by default
+	return p
 }
 
+// Update processes player state each frame
 func (p *Player) Update() {
-	p.wasOnGround = p.OnGround // Store previous ground state
+	// Only update wasOnGround if state changed
+	if p.wasOnGround != p.OnGround {
+		p.wasOnGround = p.OnGround
+	}
 
-	// Increment interaction timer each frame
-	p.LastInteractionTime++
+	// Increment interaction timer each frame (no-op if already maxed)
+	if p.LastInteractionTime < 1<<30 {
+		p.LastInteractionTime++
+	}
 
 	// Process input and update movement (without camera-dependent interactions)
-	isMoving, targetVX, jumpKeyPressed, _ := p.HandleInput(0, 0) // Pass dummy camera values for basic input
+	isMoving, targetVX, jumpKeyPressed, _ := p.HandleInput(0, 0)
 
-	// Update input state tracking
-	p.InputState.UpdateInputState(jumpKeyPressed, p.OnGround)
+	// Sprinting mechanic: hold Shift to sprint
+	p.IsSprinting = false // (Handled in input, but reset here for safety)
+
+	// Only update input state if jump key state changed
+	if jumpKeyPressed != p.InputState.JumpPressed {
+		p.InputState.UpdateInputState(jumpKeyPressed, p.OnGround)
+	}
+
+	// Apply sprint speed boost
+	if isMoving && p.IsSprinting {
+		targetVX *= 1.5 // Sprint speed multiplier
+	}
 
 	p.ApplyMovement(isMoving, targetVX)
 	p.HandleJump()
 	p.ApplyGravity()
+}
+// TakeDamage reduces player health and clamps to zero
+func (p *Player) TakeDamage(amount int) {
+	p.Health -= amount
+	if p.Health < 0 {
+		p.Health = 0
+	}
+}
+
+// Heal increases player health up to MaxHealth
+func (p *Player) Heal(amount int) {
+	p.Health += amount
+	if p.Health > p.MaxHealth {
+		p.Health = p.MaxHealth
+	}
+}
+
+// AddToInventory adds a block to the player's inventory (array version, fast)
+func (p *Player) AddToInventory(blockType block.BlockType, count int) {
+	if int(blockType) >= 0 && int(blockType) < len(p.Inventory) {
+		p.Inventory[blockType] += count
+	}
+}
+
+// RemoveFromInventory removes a block from the player's inventory (array version, fast)
+func (p *Player) RemoveFromInventory(blockType block.BlockType, count int) bool {
+	if int(blockType) >= 0 && int(blockType) < len(p.Inventory) && p.Inventory[blockType] >= count {
+		p.Inventory[blockType] -= count
+		return true
+	}
+	return false
 }
 
 // HandleBlockInteractions processes block interactions with camera coordinates
@@ -70,6 +127,11 @@ func (p *Player) SetSelectedBlock(blockType block.BlockType) {
 	p.SelectedBlock = blockType
 }
 
+// CanInteract returns true if the player can interact (based on cooldown)
+func (p *Player) CanInteract() bool {
+	return p.LastInteractionTime >= p.InteractionCooldown
+}
+
 // Entity interface implementations (delegate to AABB)
 // CollideBlocksAdvanced: Use robust sub-stepping collision with PhysicsWorld
 type PhysicsWorldProvider interface {
@@ -78,6 +140,11 @@ type PhysicsWorldProvider interface {
 
 func (p *Player) CollideBlocksAdvanced(world *entity.PhysicsWorld) {
 	p.AABB.CollideBlocksAdvanced(world)
+}
+
+// ResetInteractionCooldown resets the cooldown timer after an interaction
+func (p *Player) ResetInteractionCooldown() {
+	p.LastInteractionTime = 0
 }
 
 func (p *Player) ClampX(min, max float64) {

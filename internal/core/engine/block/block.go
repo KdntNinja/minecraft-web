@@ -31,4 +31,7 @@ const (
 	Hellstone
 )
 
+// NumBlockTypes is the total number of defined block types (for fast array access)
+const NumBlockTypes = int(Hellstone) + 1
+
 type Chunk [settings.ChunkHeight][settings.ChunkWidth]BlockType

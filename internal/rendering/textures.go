@@ -29,7 +29,7 @@ func initTextureImages() {
 		return
 	}
 
-	tileImages = make(map[block.BlockType]*ebiten.Image)
+	tileImages = make(map[block.BlockType]*ebiten.Image, block.NumBlockTypes)
 	batchRenderer = &ebiten.DrawImageOptions{}
 
 	// Copy textures from graphics package to render package

@@ -35,7 +35,7 @@ var BlockTextureConfigs = map[block.BlockType]BlockTextureConfig{
 	block.Clay:      {Filename: "clay.png", Coord: AtlasCoord{X: 0, Y: 0}},
 	block.Leaves:    {Filename: "leaves.png", Coord: AtlasCoord{X: 0, Y: 0}},
 	block.Wood:      {Filename: "wood.png", Coord: AtlasCoord{X: 0, Y: 0}},
-	block.GoldOre:   {Filename: "goldore.png", Coord: AtlasCoord{X: 0, Y: 6}},
+	block.GoldOre:   {Filename: "goldore.png", Coord: AtlasCoord{X: 0, Y: 0}},
 	block.CopperOre: {Filename: "copperore.png", Coord: AtlasCoord{X: 0, Y: 0}},
 	block.IronOre:   {Filename: "ironore.png", Coord: AtlasCoord{X: 0, Y: 0}},
 	block.Stone:     {Filename: "stone.png", Coord: AtlasCoord{X: 0, Y: 0}},
@@ -63,7 +63,7 @@ func LoadTextures(tileSize int) error {
 			log.Printf("Warning: Could not load texture %s for block %v: %v", config.Filename, blockType, err)
 			continue
 		}
-		// Tint stone variants
+		// Tint stone variants and gold ore
 		switch blockType {
 		case block.Granite:
 			texture = tintImage(texture, 1.15, 0.95, 0.85) // Warm pinkish
@@ -73,6 +73,8 @@ func LoadTextures(tileSize int) error {
 			texture = tintImage(texture, 1.2, 1.2, 1.2) // Bright white
 		case block.Slate:
 			texture = tintImage(texture, 0.6, 0.6, 0.7) // Dark gray
+		case block.GoldOre:
+			texture = tintImage(texture, 2.0, 2.0, 0.3) // Strong yellow tint
 		}
 		BlockTextures[blockType] = texture
 	}
