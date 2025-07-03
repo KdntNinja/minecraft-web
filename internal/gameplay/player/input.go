@@ -50,6 +50,7 @@ func (p *Player) HandleInput(cameraX, cameraY float64) (isMoving bool, targetVX 
 	// Handle mouse input for block interaction (instant response)
 	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) || ebiten.IsMouseButtonPressed(ebiten.MouseButtonRight) {
 		mouseX, mouseY := ebiten.CursorPosition()
+		// Use the original mapping: mouseX/mouseY are relative to the top-left of the screen.
 		worldX := float64(mouseX) + cameraX
 		worldY := float64(mouseY) + cameraY
 		blockX := int(worldX / float64(settings.TileSize))
@@ -93,13 +94,6 @@ func (p *Player) HandleInput(cameraX, cameraY float64) (isMoving bool, targetVX 
 	}
 
 	return isMoving, targetVX, jumpKeyPressed, blockInteraction
-}
-
-func absInt(x int) int {
-	if x < 0 {
-		return -x
-	}
-	return x
 }
 
 // handleBlockSelection processes number key input to change selected block type
