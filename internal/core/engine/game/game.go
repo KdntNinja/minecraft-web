@@ -1,14 +1,11 @@
 package game
 
 import (
-	"crypto/rand"
 	"fmt"
 	"image/color"
-	"math/big"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 
 	"github.com/KdntNinja/webcraft/internal/core/physics/entity"
 	"github.com/KdntNinja/webcraft/internal/core/progress"
@@ -16,21 +13,8 @@ import (
 	"github.com/KdntNinja/webcraft/internal/gameplay/player"
 	"github.com/KdntNinja/webcraft/internal/gameplay/world"
 	"github.com/KdntNinja/webcraft/internal/generation"
-	"github.com/KdntNinja/webcraft/internal/rendering"
+	"github.com/KdntNinja/webcraft/internal/systems/rendering"
 )
-
-var globalSeed int64
-
-// init generates a random seed when the package is initialized
-func init() {
-	// Generate a truly random seed
-	if randomBig, err := rand.Int(rand.Reader, big.NewInt(1000000)); err == nil {
-		globalSeed = randomBig.Int64()
-	} else {
-		// Fallback to time-based seed if crypto/rand fails
-		globalSeed = time.Now().UnixNano() % 1000000
-	}
-}
 
 type Game struct {
 	World       *world.World
@@ -149,45 +133,7 @@ func (g *Game) Update() error {
 	}
 
 	// Update only entities near the camera/screen - cached grid for better performance
-
-	// Pre-calculate camera bounds once
-	camLeft := g.CameraX - float64(settings.TileSize*2)
-	camRight := g.CameraX + float64(g.LastScreenW) + float64(settings.TileSize*2)
-	camTop := g.CameraY - float64(settings.TileSize*2)
-	camBottom := g.CameraY + float64(g.LastScreenH) + float64(settings.TileSize*2)
-
-	// Update entities (reduce slice allocation by reusing)
-	for _, e := range g.World.Entities {
-		if p, ok := e.(*player.Player); ok {
-			// Frustum culling for entities
-			if p.X+float64(settings.PlayerColliderWidth) < camLeft || p.X > camRight ||
-				p.Y+float64(settings.PlayerColliderHeight) < camTop || p.Y > camBottom {
-				continue // Skip entities far from view
-			}
-			// Set the offset for the player's collision system
-			p.AABB.GridOffsetX = g.physicsOffsetX
-			p.AABB.GridOffsetY = g.physicsOffsetY
-
-			// Update player movement
-			p.Update()
-
-			// Handle block interactions separately
-			blockInteraction := p.HandleBlockInteractions(g.CameraX, g.CameraY)
-			if blockInteraction != nil {
-				switch blockInteraction.Type {
-				case player.BreakBlock:
-					g.World.BreakBlock(blockInteraction.BlockX, blockInteraction.BlockY)
-				case player.PlaceBlock:
-					g.World.PlaceBlock(blockInteraction.BlockX, blockInteraction.BlockY, p.SelectedBlock)
-				}
-			}
-
-			// Use cached physics world
-			if g.physicsWorld != nil {
-				p.CollideBlocksAdvanced(g.physicsWorld)
-			}
-		}
-	}
+	g.UpdateEntitiesNearCamera()
 
 	// Update camera to follow player more responsively for zoomed-in feel
 	if len(g.World.Entities) > 0 {
@@ -230,110 +176,41 @@ func (g *Game) Update() error {
 
 func (g *Game) Draw(screen *ebiten.Image) {
 	if g.World == nil {
-		// Fill with black background
-		screen.Fill(color.RGBA{0, 0, 0, 255}) // Black
+		screen.Fill(color.RGBA{0, 0, 0, 255})
 		return
 	}
 
-	// --- Terraria-like sky color based on player Y position ---
-	// Get player Y (if available), else use camera Y
+	// Sky color
 	playerY := g.CameraY
 	if len(g.World.Entities) > 0 {
 		if player, ok := g.World.Entities[0].(*player.Player); ok {
 			playerY = player.Y
 		}
 	}
-	// Use settings for sky transition
-	skyColor := color.RGBA{135, 206, 235, 255}      // Terraria-like sky blue
-	undergroundColor := color.RGBA{10, 10, 30, 255} // Deep blue/black
-
-	var bgColor color.RGBA
-	if playerY <= settings.SkyTransitionStartY {
-		bgColor = skyColor
-	} else if playerY >= settings.SkyTransitionEndY {
-		bgColor = undergroundColor
-	} else {
-		t := (playerY - settings.SkyTransitionStartY) / (settings.SkyTransitionEndY - settings.SkyTransitionStartY)
-		bgR := uint8(float64(skyColor.R)*(1-t) + float64(undergroundColor.R)*t)
-		bgG := uint8(float64(skyColor.G)*(1-t) + float64(undergroundColor.G)*t)
-		bgB := uint8(float64(skyColor.B)*(1-t) + float64(undergroundColor.B)*t)
-		bgColor = color.RGBA{bgR, bgG, bgB, 255}
-	}
-
+	bgColor := GetBackgroundColor(playerY)
 	screen.Fill(bgColor)
 
-	// Render world directly to screen (avoid intermediate image allocation)
-	rendering.DrawWithCamera(g.World.GetChunksForRendering(), screen, g.CameraX, g.CameraY)
+	// World rendering
+	rendering.DrawWorld(g.World.GetChunksForRendering(), screen, g.CameraX, g.CameraY)
 
-	// Pre-calculate camera bounds for entity culling
-	camLeft := g.CameraX - float64(settings.TileSize*2)
-	camRight := g.CameraX + float64(g.LastScreenW) + float64(settings.TileSize*2)
-	camTop := g.CameraY - float64(settings.TileSize*2)
-	camBottom := g.CameraY + float64(g.LastScreenH) + float64(settings.TileSize*2)
+	// Entity rendering
+	rendering.DrawEntities(g.World.Entities, screen, g.CameraX, g.CameraY, g.LastScreenW, g.LastScreenH, g.playerImage)
 
-	// Reusable draw options to reduce allocations
-	var op ebiten.DrawImageOptions
+	// Crosshair
+	rendering.DrawCrosshair(screen, 0, 0)
 
-	// Draw only entities near the camera/screen for performance
-	for _, e := range g.World.Entities {
-		if p, ok := e.(*player.Player); ok {
-			if p.X+float64(settings.PlayerColliderWidth) < camLeft || p.X > camRight ||
-				p.Y+float64(settings.PlayerColliderHeight) < camTop || p.Y > camBottom {
-				continue
-			}
-			px := int(p.X - g.CameraX - float64(settings.PlayerSpriteWidth-settings.PlayerColliderWidth)/2)
-			py := int(p.Y - g.CameraY - float64(settings.PlayerSpriteHeight-settings.PlayerColliderHeight))
-			if px > -settings.PlayerSpriteWidth && px < g.LastScreenW && py > -settings.PlayerSpriteHeight && py < g.LastScreenH {
-				op.GeoM.Reset()
-				// --- Player animation: sneak and sprint ---
-				if p.InputState.SneakPressed {
-					// Sneaking: scale Y, move down
-					op.GeoM.Scale(1, 0.6)
-					op.GeoM.Translate(0, float64(settings.PlayerSpriteHeight)*0.4) // Lower the sprite
-				} else if p.IsSprinting {
-					// Sprinting: slight forward lean (skew/rotate)
-					op.GeoM.Rotate(-0.18) // Lean forward
-					op.GeoM.Translate(float64(settings.PlayerSpriteWidth)*0.08, float64(settings.PlayerSpriteHeight)*0.08)
-				}
-				op.GeoM.Translate(float64(px), float64(py))
-				screen.DrawImage(g.playerImage, &op)
-			}
-		}
-	}
-
-	// Draw crosshair/target indicator
-	g.drawCrosshair(screen)
-
-	// --- F3 debug screen ---
+	// Debug overlay
 	if g.ShowDebug {
-		g.drawDebugInfo(screen)
-		return // Hide all other UI except debug overlay
+		rendering.DrawDebugOverlay(screen, g.fpsHistory, g.fpsHistoryMin, g.fpsHistoryMax)
+		return
 	}
 
-	// Display FPS in the top left corner
-	fpsText := fmt.Sprintf("FPS: %.1f", g.currentFPS)
-	ebitenutil.DebugPrint(screen, fpsText)
-
-	// Display currently selected block and controls
+	// UI
+	selectedBlock := ""
 	if len(g.World.Entities) > 0 {
 		if player, ok := g.World.Entities[0].(*player.Player); ok {
-			selectedBlockText := fmt.Sprintf("\nSelected Block: %s", player.SelectedBlock.String())
-			controlsText := "\nControls:\n Left Click = Break\n Right Click = Place"
-			numbersText := "\nBlocks:\n 1=Grass\n 2=Dirt\n 3=Clay\n 4=Stone\n 5=Copper\n 6=Iron\n 7=Gold\n 8=Ash\n 9=Wood\n 0=Leaves\n"
-			uiText := fpsText + selectedBlockText + controlsText + numbersText
-			ebitenutil.DebugPrint(screen, uiText)
+			selectedBlock = player.SelectedBlock.String()
 		}
-	} else {
-		ebitenutil.DebugPrint(screen, fpsText)
 	}
-}
-
-// GetFPSHistory returns a slice of the last n FPS values for the debug graph
-func (g *Game) GetFPSHistory(n int) []float64 {
-	if len(g.fpsHistory) < n {
-		// Pad with zeros if not enough data
-		pad := make([]float64, n-len(g.fpsHistory))
-		return append(pad, g.fpsHistory...)
-	}
-	return g.fpsHistory[len(g.fpsHistory)-n:]
+	rendering.DrawGameUI(screen, g.currentFPS, selectedBlock)
 }

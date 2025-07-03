@@ -1,21 +1,27 @@
-package game
+package rendering
 
 import (
 	"fmt"
 	"image/color"
 	"math"
-	"runtime"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
-
-	"github.com/KdntNinja/webcraft/internal/core/engine/util"
-	"github.com/KdntNinja/webcraft/internal/core/settings"
-	"github.com/KdntNinja/webcraft/internal/gameplay/player"
 )
 
-// drawDebugInfo draws a Minecraft-like F3 debug screen overlay
-func (g *Game) drawDebugInfo(screen *ebiten.Image) {
+// DrawDebugOverlay draws a Minecraft-like F3 debug screen overlay
+func DrawDebugOverlay(
+	screen *ebiten.Image,
+	fpsHistory []float64,
+	minFPS, maxFPS float64,
+	currentFPS float64,
+	loadedChunks int,
+	entityCount int,
+	memUsage, maxMem float64,
+	playerInfo, chunkInfo, playerStats, camInfo, seedInfo, worldInfo string,
+	tickTimes []float64, minTick, maxTick float64,
+	gcPercent float64,
+) {
 	// Colors
 	bgColor := color.RGBA{20, 20, 30, 230}
 	borderColor := color.RGBA{80, 180, 255, 255}
@@ -49,26 +55,6 @@ func (g *Game) drawDebugInfo(screen *ebiten.Image) {
 	// Draw FPS graph (last 120 frames, larger, relative scaling to runtime min/max)
 	graphX, graphY := 30, 40
 	graphW, graphH := 220, 60
-	fpsHistory := g.GetFPSHistory(120)
-	if len(g.fpsHistory) > 0 {
-		// Track min/max FPS over all time
-		if g.fpsHistoryMin == 0 || g.fpsHistoryMin > g.fpsHistory[0] {
-			g.fpsHistoryMin = g.fpsHistory[0]
-		}
-		if g.fpsHistoryMax < g.fpsHistory[0] {
-			g.fpsHistoryMax = g.fpsHistory[0]
-		}
-		for _, v := range g.fpsHistory {
-			if v < g.fpsHistoryMin {
-				g.fpsHistoryMin = v
-			}
-			if v > g.fpsHistoryMax {
-				g.fpsHistoryMax = v
-			}
-		}
-	}
-	minFPS := g.fpsHistoryMin
-	maxFPS := g.fpsHistoryMax
 	if minFPS == maxFPS {
 		minFPS = 0
 		maxFPS = 120
@@ -92,20 +78,16 @@ func (g *Game) drawDebugInfo(screen *ebiten.Image) {
 	opGraph := &ebiten.DrawImageOptions{}
 	opGraph.GeoM.Translate(float64(graphX), float64(graphY))
 	screen.DrawImage(graph, opGraph)
-	fpsLabel := fmt.Sprintf("FPS: %.1f", g.currentFPS)
-	ebitenutil.DebugPrintAt(screen, fpsLabel, graphX+2, graphY-18)
+	// FPS label
+	ebitenutil.DebugPrintAt(screen, fmt.Sprintf("FPS: %.1f", currentFPS), 30, 20)
 
 	// Draw loaded chunks bar (larger)
 	barX, barY := 30, 120
 	barW, barH := 220, 18
 	maxChunks := 128.0
-	loadedChunks := 0.0
-	if g.World != nil && g.World.ChunkManager != nil {
-		loadedChunks = float64(g.World.ChunkManager.GetLoadedChunkCount())
-	}
 	bar := ebiten.NewImage(barW, barH)
 	bar.Fill(barBgColor)
-	fillW := int(math.Min(float64(barW), (loadedChunks/maxChunks)*float64(barW)))
+	fillW := int(math.Min(float64(barW), (float64(loadedChunks)/maxChunks)*float64(barW)))
 	if fillW > 0 {
 		fill := ebiten.NewImage(fillW, barH)
 		fill.Fill(chunkBarColor)
@@ -121,20 +103,16 @@ func (g *Game) drawDebugInfo(screen *ebiten.Image) {
 	opBar := &ebiten.DrawImageOptions{}
 	opBar.GeoM.Translate(float64(barX), float64(barY))
 	screen.DrawImage(bar, opBar)
-	barLabel := fmt.Sprintf("Loaded Chunks: %d", int(loadedChunks))
+	barLabel := fmt.Sprintf("Loaded Chunks: %d", loadedChunks)
 	ebitenutil.DebugPrintAt(screen, barLabel, barX+2, barY-18)
 
 	// Draw entity count bar
 	entityX, entityY := 30, 160
 	entityW, entityH := 220, 18
 	maxEntities := 64.0
-	entityCount := 0.0
-	if g.World != nil {
-		entityCount = float64(len(g.World.Entities))
-	}
 	entityBar := ebiten.NewImage(entityW, entityH)
 	entityBar.Fill(barBgColor)
-	entityFillW := int(math.Min(float64(entityW), (entityCount/maxEntities)*float64(entityW)))
+	entityFillW := int(math.Min(float64(entityW), (float64(entityCount)/maxEntities)*float64(entityW)))
 	if entityFillW > 0 {
 		fill := ebiten.NewImage(entityFillW, entityH)
 		fill.Fill(entityBarColor)
@@ -150,17 +128,12 @@ func (g *Game) drawDebugInfo(screen *ebiten.Image) {
 	opEntity := &ebiten.DrawImageOptions{}
 	opEntity.GeoM.Translate(float64(entityX), float64(entityY))
 	screen.DrawImage(entityBar, opEntity)
-	entityLabel := fmt.Sprintf("Entities: %d", int(entityCount))
+	entityLabel := fmt.Sprintf("Entities: %d", entityCount)
 	ebitenutil.DebugPrintAt(screen, entityLabel, entityX+2, entityY-18)
 
 	// Draw memory usage bar (real stats)
 	memX, memY := 30, 200
 	memW, memH := 220, 18
-	maxMem := float64(runtime.MemStats{}.Sys) / 1024.0 / 1024.0 // System memory in MB
-	memUsage := util.GetMemoryUsageMB()
-	if memUsage > maxMem {
-		maxMem = memUsage * 1.2 // auto-scale if needed
-	}
 	memBar := ebiten.NewImage(memW, memH)
 	memBar.Fill(barBgColor)
 	memFillW := int(math.Min(float64(memW), (memUsage/maxMem)*float64(memW)))
@@ -189,56 +162,24 @@ func (g *Game) drawDebugInfo(screen *ebiten.Image) {
 	ebitenutil.DebugPrintAt(screen, memLabel, labelX, labelY)
 
 	// Player info (more detail)
-	if len(g.World.Entities) > 0 {
-		if p, ok := g.World.Entities[0].(*player.Player); ok {
-			playerInfo := fmt.Sprintf("Player: X=%.2f Y=%.2f\nVX=%.2f VY=%.2f", p.X, p.Y, p.VX, p.VY)
-			// Place at (30, 338) (below GC bar, with padding)
-			playerY := 338
-			lineSpacing := 28
-			ebitenutil.DebugPrintAt(screen, playerInfo, 30, playerY)
-			chunkX := int(p.X) / (settings.ChunkWidth * settings.TileSize)
-			chunkY := int(p.Y) / (settings.ChunkHeight * settings.TileSize)
-			chunkInfo := fmt.Sprintf("Chunk: %d, %d", chunkX, chunkY)
-			// Place chunk info below player info
-			ebitenutil.DebugPrintAt(screen, chunkInfo, 30, playerY+lineSpacing*2)
-			playerStats := fmt.Sprintf("OnGround: %v", p.OnGround)
-			// Place player stats below chunk info
-			ebitenutil.DebugPrintAt(screen, playerStats, 30, playerY+lineSpacing*3)
-		}
-	}
+	playerY := 338
+	lineSpacing := 28
+	ebitenutil.DebugPrintAt(screen, playerInfo, 30, playerY)
+	ebitenutil.DebugPrintAt(screen, chunkInfo, 30, playerY+lineSpacing*2)
+	ebitenutil.DebugPrintAt(screen, playerStats, 30, playerY+lineSpacing*3)
 	// Camera info
-	camInfo := fmt.Sprintf("Camera: X=%.2f Y=%.2f", g.CameraX, g.CameraY)
-	// Move camera info below player stats
 	camY := 338 + 28*4
 	ebitenutil.DebugPrintAt(screen, camInfo, 30, camY)
 	// Seed
-	seedInfo := fmt.Sprintf("Seed: %d", g.Seed)
-	// Move seed info below camera info
 	seedY := camY + 28
 	ebitenutil.DebugPrintAt(screen, seedInfo, 30, seedY)
-	// World info (show loaded chunk count only)
-	if g.World != nil && g.World.ChunkManager != nil {
-		worldInfo := fmt.Sprintf("Loaded Chunks: %d", g.World.ChunkManager.GetLoadedChunkCount())
-		// Move world info below seed info
-		worldY := seedY + 28
-		ebitenutil.DebugPrintAt(screen, worldInfo, 30, worldY)
-	}
-
-	// TODO: Add more graphs (tick time, GC, etc.)
+	// World info
+	worldY := seedY + 28
+	ebitenutil.DebugPrintAt(screen, worldInfo, 30, worldY)
 
 	// Draw tick time graph (real stats)
 	tickGraphX, tickGraphY := 30, 260
 	tickGraphW, tickGraphH := 220, 40
-	tickTimes := util.GetTickTimes(120)
-	minTick, maxTick := 999.0, 0.0
-	for _, v := range tickTimes {
-		if v < minTick {
-			minTick = v
-		}
-		if v > maxTick {
-			maxTick = v
-		}
-	}
 	tickGraph := ebiten.NewImage(tickGraphW, tickGraphH)
 	tickGraph.Fill(barBgColor)
 	for i := 1; i < len(tickTimes); i++ {
@@ -260,7 +201,6 @@ func (g *Game) drawDebugInfo(screen *ebiten.Image) {
 	// Draw GC bar (real stats)
 	gcX, gcY := 30, 310
 	gcW, gcH := 220, 18
-	gcPercent := util.GetGCPercent()
 	gcBar := ebiten.NewImage(gcW, gcH)
 	gcBar.Fill(barBgColor)
 	gcFillW := int(math.Min(float64(gcW), (gcPercent/100.0)*float64(gcW)))
@@ -287,9 +227,3 @@ func (g *Game) drawDebugInfo(screen *ebiten.Image) {
 	}
 	ebitenutil.DebugPrintAt(screen, gcLabel, labelX, labelY)
 }
-
-// GetFPSHistory returns a slice of the last n FPS values (implement this in your Game struct)
-// Example stub:
-// func (g *Game) GetFPSHistory(n int) []float64 {
-// 	return make([]float64, n) // Replace with actual FPS history
-// }
