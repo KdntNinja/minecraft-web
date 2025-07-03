@@ -26,8 +26,10 @@ func main() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		// Log the request with more detail
-		log.Printf("\033[1;34m[REQ]\033[0m %s \033[1;36m%s\033[0m from \033[1;33m%s\033[0m\n        \033[2mUser-Agent:\033[0m %s\n        \033[2mReferer:\033[0m %s",
-			r.Method, r.URL.Path, r.RemoteAddr, r.UserAgent(), r.Referer())
+		// Enhanced log: timestamp, method, path, status, duration, client, user-agent, referer
+		reqTime := time.Now().Format("2006-01-02 15:04:05")
+		log.Printf("\033[1;30m[%s]\033[0m \033[1;34m%s\033[0m \033[1;36m%-20s\033[0m from \033[1;33m%-15s\033[0m\n    \033[2mUser-Agent:\033[0m %s\n    \033[2mReferer:\033[0m %s",
+			reqTime, r.Method, r.URL.Path, r.RemoteAddr, r.UserAgent(), r.Referer())
 
 		// Security headers
 		w.Header().Set("Cross-Origin-Embedder-Policy", "require-corp")
@@ -88,9 +90,15 @@ func main() {
 		// Serve file
 		fs.ServeHTTP(w, r)
 
-		// Log response time
+		// Log response time and status
 		duration := time.Since(start)
-		log.Printf("\033[1;32m[OK]\033[0m Served \033[1;36m%s\033[0m in \033[1;35m%v\033[0m", r.URL.Path, duration)
+		statusColor := "\033[1;32m[OK]\033[0m"
+		if r.Method == "OPTIONS" {
+			statusColor = "\033[1;36m[OPT]\033[0m"
+		} else if r.URL.Path == "/favicon.ico" {
+			statusColor = "\033[1;31m[404]\033[0m"
+		}
+		log.Printf("    %s \033[1;36m%-20s\033[0m in \033[1;35m%v\033[0m", statusColor, r.URL.Path, duration)
 	})
 
 	fmt.Printf("\n\033[1;33mStarting Webcraft server on port %s\033[0m\n", port)
