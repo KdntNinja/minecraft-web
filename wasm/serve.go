@@ -31,25 +31,31 @@ func main() {
 		log.Printf("\033[1;30m[%s]\033[0m \033[1;34m%s\033[0m \033[1;36m%-20s\033[0m from \033[1;33m%-15s\033[0m\n    \033[2mUser-Agent:\033[0m %s\n    \033[2mReferer:\033[0m %s",
 			reqTime, r.Method, r.URL.Path, r.RemoteAddr, r.UserAgent(), r.Referer())
 
-		// Security headers
+		// Security headers (improved)
 		w.Header().Set("Cross-Origin-Embedder-Policy", "require-corp")
 		w.Header().Set("Cross-Origin-Opener-Policy", "same-origin")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
-		w.Header().Set("X-Frame-Options", "DENY")
+		w.Header().Set("X-Frame-Options", "SAMEORIGIN")
 		w.Header().Set("X-XSS-Protection", "1; mode=block")
 		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
-		// Allow 'unsafe-eval' for WASM compatibility (required by Go WASM runtime)
-		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self';")
+		w.Header().Set("Permissions-Policy", "geolocation=(), microphone=(), camera=(), fullscreen=(self)")
+		// CSP: allow WASM, block inline scripts, allow 'unsafe-eval' for Go WASM, restrict everything else
+		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self';")
 
-		// CORS headers (locked down: only allow GET, restrict origin)
-		allowedOrigin := "http://localhost:" + port
-		if r.Header.Get("Origin") == allowedOrigin {
-			w.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
+		// CORS headers (locked down: only allow GET, restrict origin, allow localhost and 127.0.0.1)
+		allowedOrigins := []string{"http://localhost:" + port, "http://127.0.0.1:" + port}
+		origin := r.Header.Get("Origin")
+		for _, ao := range allowedOrigins {
+			if origin == ao {
+				w.Header().Set("Access-Control-Allow-Origin", ao)
+				break
+			}
 		}
+		w.Header().Set("Vary", "Origin")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 
-		// MIME types
+		// MIME types (improved, add more types and fallback)
 		ext := filepath.Ext(r.URL.Path)
 		switch ext {
 		case ".wasm":
@@ -62,12 +68,28 @@ func main() {
 			w.Header().Set("Content-Type", "text/css")
 		case ".png":
 			w.Header().Set("Content-Type", "image/png")
+		case ".jpg", ".jpeg":
+			w.Header().Set("Content-Type", "image/jpeg")
+		case ".gif":
+			w.Header().Set("Content-Type", "image/gif")
 		case ".ico":
 			w.Header().Set("Content-Type", "image/x-icon")
 		case ".svg":
 			w.Header().Set("Content-Type", "image/svg+xml")
 		case ".json":
 			w.Header().Set("Content-Type", "application/json")
+		case ".mp3":
+			w.Header().Set("Content-Type", "audio/mpeg")
+		case ".wav":
+			w.Header().Set("Content-Type", "audio/wav")
+		case ".mp4":
+			w.Header().Set("Content-Type", "video/mp4")
+		case ".webm":
+			w.Header().Set("Content-Type", "video/webm")
+		case ".txt":
+			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		default:
+			w.Header().Set("Content-Type", "application/octet-stream")
 		}
 
 		// Preflight
