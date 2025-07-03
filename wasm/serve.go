@@ -43,7 +43,11 @@ func main() {
 		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self';")
 
 		// CORS headers (locked down: only allow GET, restrict origin, allow localhost and 127.0.0.1)
-		allowedOrigins := []string{"http://localhost:" + port, "http://127.0.0.1:" + port}
+		allowedOrigins := []string{
+			"http://localhost:" + port,
+			"http://127.0.0.1:" + port,
+			"https://webcraft.kdnsite.site",
+		}
 		origin := r.Header.Get("Origin")
 		for _, ao := range allowedOrigins {
 			if origin == ao {
