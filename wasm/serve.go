@@ -34,11 +34,20 @@ func main() {
 		// Security headers
 		w.Header().Set("Cross-Origin-Embedder-Policy", "require-corp")
 		w.Header().Set("Cross-Origin-Opener-Policy", "same-origin")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("X-Frame-Options", "DENY")
+		w.Header().Set("X-XSS-Protection", "1; mode=block")
+		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		// Allow 'unsafe-eval' for WASM compatibility (required by Go WASM runtime)
+		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self';")
 
-		// CORS headers for development
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "*")
+		// CORS headers (locked down: only allow GET, restrict origin)
+		allowedOrigin := "http://localhost:" + port
+		if r.Header.Get("Origin") == allowedOrigin {
+			w.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
+		}
+		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 
 		// MIME types
 		ext := filepath.Ext(r.URL.Path)
@@ -74,16 +83,31 @@ func main() {
 			return
 		}
 
-		// Directory listing prevention
-		filePath := "." + r.URL.Path
-		info, err := os.Stat(filePath)
+		// Directory traversal and listing prevention
+		cleanPath := filepath.Clean(r.URL.Path)
+		if cleanPath == "." || cleanPath == "/" {
+			cleanPath = "/index.html"
+		}
+		if cleanPath[0] == '/' {
+			cleanPath = "." + cleanPath
+		}
+		absPath, err := filepath.Abs(cleanPath)
+		if err != nil || len(absPath) < len(currentDir) || absPath[:len(currentDir)] != currentDir {
+			http.Error(w, "403 Forbidden: Invalid path", http.StatusForbidden)
+			return
+		}
+		info, err := os.Stat(absPath)
 		if err == nil && info.IsDir() {
-			indexPath := filepath.Join(filePath, "index.html")
+			indexPath := filepath.Join(absPath, "index.html")
 			if _, err := os.Stat(indexPath); err == nil {
 				http.ServeFile(w, r, indexPath)
 				return
 			}
 			http.Error(w, "403 Forbidden: Directory listing is disabled", http.StatusForbidden)
+			return
+		}
+		if err != nil || info == nil {
+			http.NotFound(w, r)
 			return
 		}
 
