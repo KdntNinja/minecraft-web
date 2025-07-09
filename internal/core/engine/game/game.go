@@ -13,7 +13,7 @@ import (
 	"github.com/KdntNinja/webcraft/internal/gameplay/player"
 	"github.com/KdntNinja/webcraft/internal/gameplay/world"
 	"github.com/KdntNinja/webcraft/internal/generation"
-	"github.com/KdntNinja/webcraft/internal/systems/rendering"
+	"github.com/KdntNinja/webcraft/internal/rendering"
 )
 
 type Game struct {
@@ -47,6 +47,11 @@ type Game struct {
 	fpsHistory    []float64 // For FPS graph in debug overlay
 	fpsHistoryMin float64   // Track min FPS seen for relative graph
 	fpsHistoryMax float64   // Track max FPS seen for relative graph
+
+	// Additional debug tracking
+	tickTimes   []float64 // Track frame/tick times for performance monitoring
+	tickTimeMin float64   // Minimum tick time
+	tickTimeMax float64   // Maximum tick time
 }
 
 func NewGame() *Game {
@@ -191,19 +196,13 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	screen.Fill(bgColor)
 
 	// World rendering
-	rendering.DrawWorld(g.World.GetChunksForRendering(), screen, g.CameraX, g.CameraY)
+	rendering.DrawWithCamera(g.World.GetChunksForRendering(), screen, g.CameraX, g.CameraY)
 
 	// Entity rendering
 	rendering.DrawEntities(g.World.Entities, screen, g.CameraX, g.CameraY, g.LastScreenW, g.LastScreenH, g.playerImage)
 
 	// Crosshair
 	rendering.DrawCrosshair(screen, 0, 0)
-
-	// Debug overlay
-	if g.ShowDebug {
-		rendering.DrawDebugOverlay(screen, g.fpsHistory, g.fpsHistoryMin, g.fpsHistoryMax)
-		return
-	}
 
 	// UI
 	selectedBlock := ""
