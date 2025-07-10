@@ -7,7 +7,7 @@ const (
 	PerlinOctaves     = 2   // Number of Perlin noise octaves (layers)
 	PerlinPersistence = 0.5 // Perlin octave contribution (blending factor)
 
-	ChunkWidth        = 16  // Chunk width in blocks
+	ChunkWidth        = 32  // Chunk width in blocks
 	ChunkHeight       = 256 // Chunk height in blocks
 	WorldChunksY      = 20  // Number of chunks vertically in the world
 	WorldChunksX      = 25  // Number of chunks horizontally in the world

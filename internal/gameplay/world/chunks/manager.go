@@ -1,9 +1,12 @@
 package chunks
 
 import (
+	"context"
 	"fmt"
 	"math"
+	"runtime"
 	"sync"
+	"time"
 
 	"github.com/KdntNinja/webcraft/internal/core/engine/block"
 	"github.com/KdntNinja/webcraft/internal/core/progress"
@@ -17,21 +20,42 @@ type ChunkCoord struct {
 	Y int
 }
 
-// ChunkManager handles dynamic chunk loading and unloading
+// ChunkGenerationJob represents a chunk generation job
+type ChunkGenerationJob struct {
+	coord    ChunkCoord
+	priority int // Higher values = higher priority
+}
+
+// ChunkManager handles dynamic chunk loading and unloading with multithreaded generation
 type ChunkManager struct {
 	chunks          map[ChunkCoord]*block.Chunk
 	loadedChunks    map[ChunkCoord]bool
-	generating      map[ChunkCoord]bool // Track chunks being generated
-	chunkQueue      chan chunkResult    // Channel for async chunk results
+	generating      map[ChunkCoord]bool     // Track chunks being generated
+	chunkQueue      chan chunkResult        // Channel for async chunk results
+	jobQueue        chan ChunkGenerationJob // Job queue for generation workers
 	mutex           sync.RWMutex
 	viewDistance    int // Chunks to keep loaded around player
 	lastPlayerChunk ChunkCoord
+
+	// Worker pool for chunk generation
+	workerPool   sync.WaitGroup
+	workerCtx    context.Context
+	workerCancel context.CancelFunc
+	numWorkers   int
+
+	// Performance metrics
+	generationMetrics struct {
+		totalGenerated int64
+		totalTime      time.Duration
+		mutex          sync.RWMutex
+	}
 }
 
 // NewChunkManager creates a new chunk manager
 type chunkResult struct {
-	coord ChunkCoord
-	chunk *block.Chunk
+	coord          ChunkCoord
+	chunk          *block.Chunk
+	generationTime time.Duration
 }
 
 func NewChunkManager(viewDistance int) *ChunkManager {
@@ -40,10 +64,13 @@ func NewChunkManager(viewDistance int) *ChunkManager {
 		loadedChunks:    make(map[ChunkCoord]bool),
 		generating:      make(map[ChunkCoord]bool),
 		chunkQueue:      make(chan chunkResult, 32),
+		jobQueue:        make(chan ChunkGenerationJob, 64), // Buffered job queue
 		viewDistance:    viewDistance,
 		lastPlayerChunk: ChunkCoord{X: math.MaxInt32, Y: math.MaxInt32}, // Force initial load
+		numWorkers:      runtime.NumCPU(),                               // Use all available CPUs
 	}
 	go cm.chunkInsertWorker()
+	go cm.startWorkerPool()
 	return cm
 }
 
@@ -55,6 +82,62 @@ func (cm *ChunkManager) chunkInsertWorker() {
 		cm.loadedChunks[res.coord] = true
 		delete(cm.generating, res.coord)
 		cm.mutex.Unlock()
+
+		// Log performance if slow
+		if res.generationTime > 100*time.Millisecond {
+			fmt.Printf("CHUNK_MANAGER: Slow chunk generation at (%d, %d): %v\n",
+				res.coord.X, res.coord.Y, res.generationTime)
+		}
+	}
+}
+
+// startWorkerPool starts the worker pool for chunk generation
+func (cm *ChunkManager) startWorkerPool() {
+	cm.workerCtx, cm.workerCancel = context.WithCancel(context.Background())
+	for i := 0; i < cm.numWorkers; i++ {
+		cm.workerPool.Add(1)
+		go cm.worker(i)
+	}
+}
+
+// worker is a single worker goroutine for chunk generation
+func (cm *ChunkManager) worker(workerID int) {
+	defer cm.workerPool.Done()
+	fmt.Printf("CHUNK_MANAGER: Worker %d starting\n", workerID)
+
+	for {
+		select {
+		case <-cm.workerCtx.Done():
+			fmt.Printf("CHUNK_MANAGER: Worker %d shutting down\n", workerID)
+			return
+		case job := <-cm.jobQueue:
+			start := time.Now()
+
+			// Generate the chunk
+			chunk := generation.GenerateChunk(job.coord.X, job.coord.Y)
+			generationTime := time.Since(start)
+
+			// Update metrics
+			cm.generationMetrics.mutex.Lock()
+			cm.generationMetrics.totalGenerated++
+			cm.generationMetrics.totalTime += generationTime
+			cm.generationMetrics.mutex.Unlock()
+
+			// Send result to insertion worker
+			result := chunkResult{
+				coord:          job.coord,
+				chunk:          &chunk,
+				generationTime: generationTime,
+			}
+
+			select {
+			case cm.chunkQueue <- result:
+				fmt.Printf("CHUNK_MANAGER: Worker %d generated chunk (%d, %d) in %v\n",
+					workerID, job.coord.X, job.coord.Y, generationTime)
+			case <-cm.workerCtx.Done():
+				return
+			}
+		}
 	}
 }
 
@@ -78,11 +161,13 @@ func (cm *ChunkManager) GetChunk(chunkX, chunkY int) *block.Chunk {
 	cm.mutex.Lock()
 	if _, already := cm.generating[coord]; !already {
 		cm.generating[coord] = true
-		go func(cx, cy int, c ChunkCoord) {
-			newChunk := generation.GenerateChunk(cx, cy)
-			cm.chunkQueue <- chunkResult{coord: c, chunk: &newChunk}
-			fmt.Printf("CHUNK_MANAGER: Generated chunk (%d, %d) [async]\n", cx, cy)
-		}(chunkX, chunkY, coord)
+		// Add job to the queue with priority based on distance from player
+		playerDist := int(math.Abs(float64(coord.X-cm.lastPlayerChunk.X))) + int(math.Abs(float64(coord.Y-cm.lastPlayerChunk.Y)))
+		priority := cm.viewDistance*2 - playerDist // Closer chunks have higher priority
+		if priority < 0 {
+			priority = 0
+		}
+		cm.jobQueue <- ChunkGenerationJob{coord: coord, priority: priority}
 	}
 	cm.mutex.Unlock()
 	return nil // Not ready yet
@@ -311,4 +396,28 @@ func (cm *ChunkManager) GetBlock(blockX, blockY int) block.BlockType {
 // ViewDistance returns the chunk view distance
 func (cm *ChunkManager) ViewDistance() int {
 	return cm.viewDistance
+}
+
+// GetGenerationMetrics returns performance metrics
+func (cm *ChunkManager) GetGenerationMetrics() (int64, time.Duration) {
+	cm.generationMetrics.mutex.RLock()
+	defer cm.generationMetrics.mutex.RUnlock()
+	return cm.generationMetrics.totalGenerated, cm.generationMetrics.totalTime
+}
+
+// Shutdown cleanly stops all workers
+func (cm *ChunkManager) Shutdown() {
+	fmt.Println("CHUNK_MANAGER: Shutting down...")
+	cm.workerCancel()
+	cm.workerPool.Wait()
+	close(cm.chunkQueue)
+	close(cm.jobQueue)
+	fmt.Println("CHUNK_MANAGER: Shutdown complete")
+}
+
+// Stop stops the chunk manager and waits for workers to finish
+func (cm *ChunkManager) Stop() {
+	cm.workerCancel()
+	cm.workerPool.Wait()
+	fmt.Println("CHUNK_MANAGER: All workers stopped")
 }

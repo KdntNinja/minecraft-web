@@ -1,7 +1,9 @@
 package world
 
 import (
+	"context"
 	"fmt"
+	"runtime"
 	"sync"
 
 	"github.com/KdntNinja/webcraft/internal/core/engine/block"
@@ -13,6 +15,13 @@ import (
 	"github.com/KdntNinja/webcraft/internal/generation"
 )
 
+// AsyncUpdateTask represents a task for async world updates
+type AsyncUpdateTask struct {
+	taskType string
+	data     interface{}
+	callback func(interface{})
+}
+
 type World struct {
 	ChunkManager *chunks.ChunkManager // Dynamic chunk loading system
 	Entities     entity.Entities      // All entities in the world
@@ -22,6 +31,17 @@ type World struct {
 	cachedGridOffsetX int     // Cached grid offset X
 	cachedGridOffsetY int     // Cached grid offset Y
 	gridDirty         bool    // Flag to indicate grid needs regeneration
+
+	// Async update system
+	updateTasks      chan AsyncUpdateTask
+	updateWorkers    sync.WaitGroup
+	updateCtx        context.Context
+	updateCancel     context.CancelFunc
+	numUpdateWorkers int
+
+	// Grid generation pool
+	gridGenerationMutex sync.RWMutex
+	gridGenerationPool  sync.Pool
 }
 
 // NewWorld constructs a new World instance with dynamic chunk loading
@@ -32,10 +52,24 @@ func NewWorld(seed int64) *World {
 	progress.UpdateCurrentStepProgress(2, "Reset world generation")
 
 	w := &World{
-		ChunkManager: chunks.NewChunkManager(settings.ChunkViewDistance),
-		Entities:     entity.Entities{},
-		gridDirty:    true,
+		ChunkManager:     chunks.NewChunkManager(settings.ChunkViewDistance),
+		Entities:         entity.Entities{},
+		gridDirty:        true,
+		numUpdateWorkers: runtime.NumCPU(),                // Use all available CPUs for updates
+		updateTasks:      make(chan AsyncUpdateTask, 100), // Buffered channel for update tasks
 	}
+
+	// Initialize async update system
+	w.updateCtx, w.updateCancel = context.WithCancel(context.Background())
+	w.startUpdateWorkers()
+
+	// Initialize grid generation pool
+	w.gridGenerationPool = sync.Pool{
+		New: func() interface{} {
+			return make([][]int, 0, 256) // Pre-allocate slice capacity
+		},
+	}
+
 	progress.UpdateCurrentStepProgress(3, "Created world structure")
 	progress.CompleteCurrentStep()
 
@@ -61,7 +95,205 @@ func NewWorld(seed int64) *World {
 	progress.UpdateCurrentStepProgress(1, "World generation finished!")
 	progress.CompleteCurrentStep()
 
+	// Initialize the grid generation pool
+	w.gridGenerationPool = sync.Pool{
+		New: func() interface{} {
+			// Allocate a new grid slice
+			return make([][]int, 0)
+		},
+	}
+
+	// Start async update workers
+	w.updateCtx, w.updateCancel = context.WithCancel(context.Background())
+	for i := 0; i < w.numUpdateWorkers; i++ {
+		w.updateWorkers.Add(1)
+		go w.updateWorker(i)
+	}
+
 	return w
+}
+
+// startUpdateWorkers starts the worker pool for async world updates
+func (w *World) startUpdateWorkers() {
+	for i := 0; i < w.numUpdateWorkers; i++ {
+		w.updateWorkers.Add(1)
+		go w.updateWorker(i)
+	}
+}
+
+// updateWorker processes async update tasks
+func (w *World) updateWorker(workerID int) {
+	defer w.updateWorkers.Done()
+
+	for {
+		select {
+		case <-w.updateCtx.Done():
+			return
+		case task := <-w.updateTasks:
+			// Process different types of update tasks
+			switch task.taskType {
+			case "grid_generation":
+				w.processGridGeneration(task.data, task.callback)
+			case "entity_update":
+				w.processEntityUpdate(task.data, task.callback)
+			case "physics_update":
+				w.processPhysicsUpdate(task.data, task.callback)
+			}
+		}
+	}
+}
+
+// processGridGeneration handles grid generation tasks
+func (w *World) processGridGeneration(data interface{}, callback func(interface{})) {
+	if _, ok := data.(map[string]interface{}); ok {
+		// Generate grid asynchronously
+		allChunks := w.ChunkManager.GetAllChunks()
+		result := w.generateGridDataAsync(allChunks)
+		if callback != nil {
+			callback(result)
+		}
+	}
+}
+
+// processEntityUpdate handles entity update tasks
+func (w *World) processEntityUpdate(data interface{}, callback func(interface{})) {
+	if entities, ok := data.([]entity.Entity); ok {
+		// Update entities in parallel
+		var wg sync.WaitGroup
+		for _, e := range entities {
+			wg.Add(1)
+			go func(ent entity.Entity) {
+				defer wg.Done()
+				ent.Update()
+			}(e)
+		}
+		wg.Wait()
+		if callback != nil {
+			callback(nil)
+		}
+	}
+}
+
+// processPhysicsUpdate handles physics update tasks
+func (w *World) processPhysicsUpdate(data interface{}, callback func(interface{})) {
+	if _, ok := data.(map[string]interface{}); ok {
+		// Process physics updates asynchronously
+		if callback != nil {
+			callback(nil)
+		}
+	}
+}
+
+// asyncUpdateWorker processes update tasks from the channel
+func (w *World) asyncUpdateWorker() {
+	defer w.updateWorkers.Done()
+	for {
+		select {
+		case task := <-w.updateTasks:
+			// Process the update task
+			switch task.taskType {
+			case "entityUpdate":
+				if entities, ok := task.data.(entity.Entities); ok {
+					for i := range entities {
+						entities[i].Update()
+					}
+				}
+			}
+
+			// Call the task's callback function if provided
+			if task.callback != nil {
+				task.callback(task.data)
+			}
+
+		case <-w.updateCtx.Done():
+			return // Context cancelled, exit the worker
+		}
+	}
+}
+
+// generateGridDataAsync generates collision grid data asynchronously
+func (w *World) generateGridDataAsync(allChunks map[chunks.ChunkCoord]*block.Chunk) interface{} {
+	if len(allChunks) == 0 {
+		return map[string]interface{}{
+			"grid":    [][]int{},
+			"offsetX": 0,
+			"offsetY": 0,
+		}
+	}
+
+	// Calculate bounds
+	minX, maxX, minY, maxY := 0, 0, 0, 0
+	first := true
+	for coord := range allChunks {
+		if first {
+			minX, maxX, minY, maxY = coord.X, coord.X, coord.Y, coord.Y
+			first = false
+		} else {
+			if coord.X < minX {
+				minX = coord.X
+			}
+			if coord.X > maxX {
+				maxX = coord.X
+			}
+			if coord.Y < minY {
+				minY = coord.Y
+			}
+			if coord.Y > maxY {
+				maxY = coord.Y
+			}
+		}
+	}
+
+	width := (maxX - minX + 1) * settings.ChunkWidth
+	height := (maxY - minY + 1) * settings.ChunkHeight
+
+	// Get grid from pool or create new
+	var grid [][]int
+	if poolGrid := w.gridGenerationPool.Get(); poolGrid != nil {
+		if pGrid, ok := poolGrid.([][]int); ok {
+			grid = pGrid[:0] // Reset slice but keep capacity
+		}
+	}
+	if grid == nil {
+		grid = make([][]int, height)
+	}
+
+	// Ensure grid has correct dimensions
+	for len(grid) < height {
+		grid = append(grid, make([]int, width))
+	}
+	for i := 0; i < height; i++ {
+		if len(grid[i]) < width {
+			grid[i] = make([]int, width)
+		}
+	}
+
+	// Fill grid in parallel
+	var wg sync.WaitGroup
+	for coord, chunk := range allChunks {
+		wg.Add(1)
+		go func(coord chunks.ChunkCoord, chunk *block.Chunk) {
+			defer wg.Done()
+			for y := 0; y < settings.ChunkHeight; y++ {
+				for x := 0; x < settings.ChunkWidth; x++ {
+					globalX := (coord.X-minX)*settings.ChunkWidth + x
+					globalY := (coord.Y-minY)*settings.ChunkHeight + y
+					if y < len((*chunk)) && x < len((*chunk)[y]) {
+						grid[globalY][globalX] = int((*chunk)[y][x])
+					} else {
+						grid[globalY][globalX] = int(block.Air)
+					}
+				}
+			}
+		}(coord, chunk)
+	}
+	wg.Wait()
+
+	return map[string]interface{}{
+		"grid":    grid,
+		"offsetX": minX * settings.ChunkWidth,
+		"offsetY": minY * settings.ChunkHeight,
+	}
 }
 
 // ToIntGrid flattens the world's blocks into a [][]int grid for entity collision, and returns the offset (minX, minY)
@@ -236,7 +468,7 @@ func (w *World) Update() {
 		}
 	}
 
-	// Parallel entity updates for physics and logic
+	// Update entities directly in parallel (more efficient than task queue for this)
 	var wg sync.WaitGroup
 	for _, e := range w.Entities {
 		wg.Add(1)
@@ -307,4 +539,16 @@ func (w *World) updateCachedGridBlock(blockX, blockY int, blockType block.BlockT
 // GetChunksForRendering returns all currently loaded chunks for rendering
 func (w *World) GetChunksForRendering() map[chunks.ChunkCoord]*block.Chunk {
 	return w.ChunkManager.GetAllChunks()
+}
+
+// Stop stops the world and cleans up resources
+func (w *World) Stop() {
+	// Cancel the update context to stop all workers
+	w.updateCancel()
+
+	// Wait for all update workers to finish
+	w.updateWorkers.Wait()
+	close(w.updateTasks)
+	w.ChunkManager.Shutdown()
+	fmt.Println("WORLD: Shutdown complete")
 }

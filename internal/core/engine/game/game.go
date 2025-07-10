@@ -3,10 +3,13 @@ package game
 import (
 	"fmt"
 	"image/color"
+	"runtime"
+	"sync"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 
+	"github.com/KdntNinja/webcraft/internal/core/physics"
 	"github.com/KdntNinja/webcraft/internal/core/physics/entity"
 	"github.com/KdntNinja/webcraft/internal/core/progress"
 	"github.com/KdntNinja/webcraft/internal/core/settings"
@@ -39,6 +42,12 @@ type Game struct {
 	physicsOffsetX int
 	physicsOffsetY int
 
+	// Async physics system
+	asyncPhysics *physics.AsyncPhysicsSystem
+
+	// Multithreaded rendering
+	asyncRenderer *rendering.AsyncRenderer
+
 	// Debug
 	ShowDebug     bool // Show debug screen when F3 is pressed
 	prevF3Pressed bool // Track previous F3 key state for toggle
@@ -52,6 +61,12 @@ type Game struct {
 	tickTimes   []float64 // Track frame/tick times for performance monitoring
 	tickTimeMin float64   // Minimum tick time
 	tickTimeMax float64   // Maximum tick time
+
+	// Performance optimization
+	frameStartTime time.Time
+	updateTime     time.Duration
+	renderTime     time.Duration
+	parallelTasks  sync.WaitGroup
 }
 
 func NewGame() *Game {
@@ -60,7 +75,7 @@ func NewGame() *Game {
 	totalChunks := (viewDistance*2 + 1) * (viewDistance*2 + 1)
 
 	steps := []progress.ProgressStep{
-		{Name: "Initializing", Weight: 1.0, SubSteps: 4, Description: "Starting game initialization..."},
+		{Name: "Initializing", Weight: 1.0, SubSteps: 6, Description: "Starting game initialization..."},
 		{Name: "World Setup", Weight: 1.0, SubSteps: 3, Description: "Setting up world structure..."},
 		{Name: "Generating Terrain", Weight: 8.0, SubSteps: totalChunks, Description: "Generating world chunks..."},
 		{Name: "Spawning Player", Weight: 1.0, SubSteps: 3, Description: "Creating player entity..."},
@@ -72,25 +87,33 @@ func NewGame() *Game {
 	progress.UpdateCurrentStepProgress(1, fmt.Sprintf("Using random world seed: %d", seed))
 
 	g := &Game{
-		LastScreenW:   800, // Default screen width
-		LastScreenH:   600, // Default screen height
-		Seed:          seed,
-		lastFPSUpdate: time.Now(), // Initialize FPS tracking
-		currentFPS:    60.0,       // Default FPS value
+		LastScreenW:    800, // Default screen width
+		LastScreenH:    600, // Default screen height
+		Seed:           seed,
+		lastFPSUpdate:  time.Now(), // Initialize FPS tracking
+		currentFPS:     60.0,       // Default FPS value
+		frameStartTime: time.Now(),
 	}
+
+	// Initialize async systems
+	progress.UpdateCurrentStepProgress(2, "Initializing async physics system...")
+	g.asyncPhysics = physics.GetAsyncPhysicsSystem()
+
+	progress.UpdateCurrentStepProgress(3, "Initializing async renderer...")
+	g.asyncRenderer = rendering.GetAsyncRenderer()
 
 	// Hide the cursor for better gameplay experience and use custom crosshair
 	ebiten.SetCursorMode(ebiten.CursorModeHidden)
-	progress.UpdateCurrentStepProgress(2, "Set up game configuration")
+	progress.UpdateCurrentStepProgress(4, "Set up game configuration")
 
 	// Always reset world generation with the new seed
 	generation.ResetWorldGeneration(seed)
-	progress.UpdateCurrentStepProgress(3, "Reset generation systems")
+	progress.UpdateCurrentStepProgress(5, "Reset generation systems")
 
 	// Pre-allocate player image to avoid recreating it every frame
 	g.playerImage = ebiten.NewImage(settings.PlayerSpriteWidth, settings.PlayerSpriteHeight)
 	g.playerImage.Fill(color.RGBA{255, 255, 0, 255}) // Yellow
-	progress.UpdateCurrentStepProgress(4, "Created player graphics")
+	progress.UpdateCurrentStepProgress(6, "Created player graphics")
 
 	// Complete initialization step
 	progress.CompleteCurrentStep()
@@ -108,10 +131,14 @@ func NewGame() *Game {
 		}
 	}
 
+	runtime.GC() // Force garbage collection after initialization
+	fmt.Printf("GAME: Initialized with %d CPU cores available\n", runtime.NumCPU())
 	return g
 }
 
 func (g *Game) Update() error {
+	g.frameStartTime = time.Now()
+
 	if g.World == nil {
 		return nil
 	}
@@ -126,8 +153,13 @@ func (g *Game) Update() error {
 	g.frameCount++
 	g.fpsCounter++
 
-	// Update world (handles dynamic chunk loading)
-	g.World.Update()
+	// Start parallel tasks
+	g.parallelTasks.Add(1)
+	go func() {
+		defer g.parallelTasks.Done()
+		// Update world (handles dynamic chunk loading)
+		g.World.Update()
+	}()
 
 	// Update FPS calculation every second
 	now := time.Now()
@@ -137,8 +169,12 @@ func (g *Game) Update() error {
 		g.lastFPSUpdate = now
 	}
 
-	// Update only entities near the camera/screen - cached grid for better performance
-	g.UpdateEntitiesNearCamera()
+	// Update entities using async physics system
+	g.parallelTasks.Add(1)
+	go func() {
+		defer g.parallelTasks.Done()
+		g.UpdateEntitiesNearCameraAsync()
+	}()
 
 	// Update camera to follow player more responsively for zoomed-in feel
 	if len(g.World.Entities) > 0 {
@@ -156,30 +192,25 @@ func (g *Game) Update() error {
 
 	// Only regenerate collision grid and physics world when necessary
 	if g.frameCount%60 == 0 || g.World.IsGridDirty() || g.physicsWorld == nil {
-		g.physicsGrid, g.physicsOffsetX, g.physicsOffsetY = g.World.ToIntGrid()
-		g.physicsWorld = entity.NewPhysicsWorld(g.physicsGrid)
-		// Sanity check: if grid is all air, log a warning (for debugging)
-		allAir := true
-		for _, row := range g.physicsGrid {
-			for _, v := range row {
-				if v != 0 {
-					allAir = false
-					break
-				}
-			}
-			if !allAir {
-				break
-			}
-		}
-		if allAir {
-			fmt.Println("[WARN] Physics grid is all air! Player will float.")
-		}
+		g.parallelTasks.Add(1)
+		go func() {
+			defer g.parallelTasks.Done()
+			g.updatePhysicsWorldAsync()
+		}()
 	}
+
+	// Wait for all parallel tasks to complete
+	g.parallelTasks.Wait()
+
+	// Track update performance
+	g.updateTime = time.Since(g.frameStartTime)
 
 	return nil
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
+	renderStart := time.Now()
+
 	if g.World == nil {
 		screen.Fill(color.RGBA{0, 0, 0, 255})
 		return
@@ -195,8 +226,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	bgColor := GetBackgroundColor(playerY)
 	screen.Fill(bgColor)
 
-	// World rendering
-	rendering.DrawWithCamera(g.World.GetChunksForRendering(), screen, g.CameraX, g.CameraY)
+	// World rendering using async renderer
+	rendering.DrawWithCameraAsync(g.World.GetChunksForRendering(), screen, g.CameraX, g.CameraY)
 
 	// Entity rendering
 	rendering.DrawEntities(g.World.Entities, screen, g.CameraX, g.CameraY, g.LastScreenW, g.LastScreenH, g.playerImage)
@@ -212,4 +243,132 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		}
 	}
 	rendering.DrawGameUI(screen, g.currentFPS, selectedBlock)
+
+	// Track render performance
+	g.renderTime = time.Since(renderStart)
+
+	// Update performance tracking
+	g.updatePerformanceMetrics()
+}
+
+// UpdateEntitiesNearCameraAsync updates entities using async physics system
+func (g *Game) UpdateEntitiesNearCameraAsync() {
+	// Pre-calculate camera bounds once
+	camLeft := g.CameraX - float64(settings.TileSize*2)
+	camRight := g.CameraX + float64(g.LastScreenW) + float64(settings.TileSize*2)
+	camTop := g.CameraY - float64(settings.TileSize*2)
+	camBottom := g.CameraY + float64(g.LastScreenH) + float64(settings.TileSize*2)
+
+	// Filter entities within camera bounds
+	var nearbyEntities []entity.Entity
+	for _, e := range g.World.Entities {
+		if p, ok := e.(*player.Player); ok {
+			// Frustum culling for entities
+			if p.X+float64(settings.PlayerColliderWidth) < camLeft || p.X > camRight ||
+				p.Y+float64(settings.PlayerColliderHeight) < camTop || p.Y > camBottom {
+				continue // Skip entities far from view
+			}
+			nearbyEntities = append(nearbyEntities, e)
+		}
+	}
+
+	// Process entities using async physics system
+	g.asyncPhysics.ProcessEntitiesAsync(nearbyEntities, g.physicsWorld, func(ent entity.Entity) {
+		if p, ok := ent.(*player.Player); ok {
+			// Set the offset for the player's collision system
+			p.AABB.GridOffsetX = g.physicsOffsetX
+			p.AABB.GridOffsetY = g.physicsOffsetY
+
+			// Handle block interactions separately
+			blockInteraction := p.HandleBlockInteractions(g.CameraX, g.CameraY)
+			if blockInteraction != nil {
+				switch blockInteraction.Type {
+				case player.BreakBlock:
+					g.World.BreakBlock(blockInteraction.BlockX, blockInteraction.BlockY)
+				case player.PlaceBlock:
+					g.World.PlaceBlock(blockInteraction.BlockX, blockInteraction.BlockY, p.SelectedBlock)
+				}
+			}
+		}
+	})
+}
+
+// updatePhysicsWorldAsync updates the physics world asynchronously
+func (g *Game) updatePhysicsWorldAsync() {
+	g.physicsGrid, g.physicsOffsetX, g.physicsOffsetY = g.World.ToIntGrid()
+	g.physicsWorld = entity.NewPhysicsWorld(g.physicsGrid)
+
+	// Update spatial grid for physics system
+	g.asyncPhysics.UpdateSpatialGrid(g.World.Entities)
+
+	// Sanity check: if grid is all air, log a warning (for debugging)
+	allAir := true
+	for _, row := range g.physicsGrid {
+		for _, v := range row {
+			if v != 0 {
+				allAir = false
+				break
+			}
+		}
+		if !allAir {
+			break
+		}
+	}
+	if allAir {
+		fmt.Println("[WARN] Physics grid is all air! Player will float.")
+	}
+}
+
+// updatePerformanceMetrics updates performance tracking metrics
+func (g *Game) updatePerformanceMetrics() {
+	// Update tick times for debug overlay
+	totalFrameTime := g.updateTime + g.renderTime
+	g.tickTimes = append(g.tickTimes, totalFrameTime.Seconds()*1000) // Convert to milliseconds
+
+	// Keep only last 120 frames for performance
+	if len(g.tickTimes) > 120 {
+		g.tickTimes = g.tickTimes[1:]
+	}
+
+	// Update min/max tick times
+	if len(g.tickTimes) > 0 {
+		frameTime := g.tickTimes[len(g.tickTimes)-1]
+		if g.tickTimeMin == 0 || frameTime < g.tickTimeMin {
+			g.tickTimeMin = frameTime
+		}
+		if frameTime > g.tickTimeMax {
+			g.tickTimeMax = frameTime
+		}
+	}
+
+	// Update FPS history for debug overlay
+	g.fpsHistory = append(g.fpsHistory, g.currentFPS)
+	if len(g.fpsHistory) > 120 {
+		g.fpsHistory = g.fpsHistory[1:]
+	}
+
+	// Update FPS min/max
+	if len(g.fpsHistory) > 0 {
+		if g.fpsHistoryMin == 0 || g.currentFPS < g.fpsHistoryMin {
+			g.fpsHistoryMin = g.currentFPS
+		}
+		if g.currentFPS > g.fpsHistoryMax {
+			g.fpsHistoryMax = g.currentFPS
+		}
+	}
+}
+
+// Shutdown cleanly shuts down all async systems
+func (g *Game) Shutdown() {
+	fmt.Println("GAME: Shutting down async systems...")
+	if g.World != nil {
+		g.World.Stop()
+	}
+	if g.asyncPhysics != nil {
+		g.asyncPhysics.Shutdown()
+	}
+	if g.asyncRenderer != nil {
+		g.asyncRenderer.Shutdown()
+	}
+	fmt.Println("GAME: Shutdown complete")
 }
