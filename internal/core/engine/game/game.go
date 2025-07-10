@@ -79,7 +79,7 @@ func NewGame() *Game {
 		currentFPS:    60.0,       // Default FPS value
 	}
 
-	// Hide the cursor for better gameplay experience
+	// Hide the cursor for better gameplay experience and use custom crosshair
 	ebiten.SetCursorMode(ebiten.CursorModeHidden)
 	progress.UpdateCurrentStepProgress(2, "Set up game configuration")
 
@@ -202,7 +202,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	rendering.DrawEntities(g.World.Entities, screen, g.CameraX, g.CameraY, g.LastScreenW, g.LastScreenH, g.playerImage)
 
 	// Crosshair
-	rendering.DrawCrosshair(screen, 0, 0)
+	rendering.DrawCrosshair(screen, g.World, g.CameraX, g.CameraY)
 
 	// UI
 	selectedBlock := ""

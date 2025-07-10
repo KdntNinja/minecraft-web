@@ -1,4 +1,4 @@
-package game
+package rendering
 
 import (
 	"image/color"
@@ -8,8 +8,8 @@ import (
 	"github.com/KdntNinja/webcraft/internal/core/settings"
 )
 
-// drawBlockOutline draws an outline around a block
-func (g *Game) drawBlockOutline(screen *ebiten.Image, x, y int, outlineColor color.RGBA) {
+// DrawBlockOutline draws an outline around a block
+func DrawBlockOutline(screen *ebiten.Image, x, y int, outlineColor color.RGBA) {
 	tileSize := settings.TileSize
 
 	// Top edge
