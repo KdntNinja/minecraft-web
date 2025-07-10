@@ -43,6 +43,13 @@ type ChunkManager struct {
 	workerCancel context.CancelFunc
 	numWorkers   int
 
+	// Anti-stutter mechanisms
+	frameStartTime        time.Time
+	chunksLoadedThisFrame int
+	concurrentJobs        int
+	concurrentJobsMutex   sync.Mutex
+	frameCount            int // Frame counter for per-frame operations
+
 	// Performance metrics
 	generationMetrics struct {
 		totalGenerated int64
@@ -81,10 +88,11 @@ func (cm *ChunkManager) chunkInsertWorker() {
 		cm.chunks[res.coord] = res.chunk
 		cm.loadedChunks[res.coord] = true
 		delete(cm.generating, res.coord)
+		cm.chunksLoadedThisFrame++
 		cm.mutex.Unlock()
 
 		// Log performance if slow
-		if res.generationTime > 100*time.Millisecond {
+		if res.generationTime > time.Duration(settings.SlowChunkGenerationThreshold)*time.Millisecond {
 			fmt.Printf("CHUNK_MANAGER: Slow chunk generation at (%d, %d): %v\n",
 				res.coord.X, res.coord.Y, res.generationTime)
 		}
@@ -111,11 +119,32 @@ func (cm *ChunkManager) worker(workerID int) {
 			fmt.Printf("CHUNK_MANAGER: Worker %d shutting down\n", workerID)
 			return
 		case job := <-cm.jobQueue:
+			// Check if we should limit concurrent jobs
+			cm.concurrentJobsMutex.Lock()
+			if cm.concurrentJobs >= settings.MaxConcurrentChunkJobs {
+				// Put job back and wait
+				cm.concurrentJobsMutex.Unlock()
+				select {
+				case cm.jobQueue <- job:
+				case <-cm.workerCtx.Done():
+					return
+				}
+				time.Sleep(time.Millisecond * 10) // Brief pause
+				continue
+			}
+			cm.concurrentJobs++
+			cm.concurrentJobsMutex.Unlock()
+
 			start := time.Now()
 
 			// Generate the chunk
 			chunk := generation.GenerateChunk(job.coord.X, job.coord.Y)
 			generationTime := time.Since(start)
+
+			// Update concurrent job count
+			cm.concurrentJobsMutex.Lock()
+			cm.concurrentJobs--
+			cm.concurrentJobsMutex.Unlock()
 
 			// Update metrics
 			cm.generationMetrics.mutex.Lock()
@@ -175,6 +204,9 @@ func (cm *ChunkManager) GetChunk(chunkX, chunkY int) *block.Chunk {
 
 // UpdatePlayerPosition updates the chunk loading based on player position
 func (cm *ChunkManager) UpdatePlayerPosition(playerX, playerY float64) {
+	// Reset frame counters for anti-stutter tracking
+	cm.ResetFrameCounters()
+
 	// Calculate player's current chunk
 	chunkX := int(math.Floor(playerX / float64(settings.ChunkWidth*settings.TileSize)))
 	chunkY := int(math.Floor(playerY / float64(settings.ChunkHeight*settings.TileSize)))
@@ -184,8 +216,10 @@ func (cm *ChunkManager) UpdatePlayerPosition(playerX, playerY float64) {
 	// Always check for new chunks, not just on chunk change
 	cm.loadChunksAroundPlayer(chunkX, chunkY)
 
-	// Unload distant chunks
-	cm.unloadDistantChunks(chunkX, chunkY)
+	// Unload distant chunks (less frequently to avoid stutter)
+	if cm.frameCount%30 == 0 { // Only every 30 frames (0.5 seconds at 60fps)
+		cm.unloadDistantChunks(chunkX, chunkY)
+	}
 
 	// Only update lastPlayerChunk if player moved to a different chunk
 	if currentChunk != cm.lastPlayerChunk {
@@ -197,10 +231,16 @@ func (cm *ChunkManager) UpdatePlayerPosition(playerX, playerY float64) {
 // Load up to N chunks per frame to reduce stutter
 const MaxChunksPerFrame = 2
 
-// loadChunksAroundPlayer loads chunks within view distance of the player (no bias, true square)
+// loadChunksAroundPlayer loads chunks within view distance of the player with anti-stutter measures
 func (cm *ChunkManager) loadChunksAroundPlayer(playerChunkX, playerChunkY int) {
+	// Check if we should limit loading this frame
+	if cm.ShouldLimitChunkLoading() {
+		return
+	}
+
 	loadCount := 0
-	chunksToLoad := []ChunkCoord{}
+	priorityChunks := []ChunkGenerationJob{}
+	backgroundChunks := []ChunkGenerationJob{}
 
 	for dx := -cm.viewDistance; dx <= cm.viewDistance; dx++ {
 		for dy := -cm.viewDistance; dy <= cm.viewDistance; dy++ {
@@ -215,20 +255,54 @@ func (cm *ChunkManager) loadChunksAroundPlayer(playerChunkX, playerChunkY int) {
 			cm.mutex.RUnlock()
 
 			if !exists && !generating {
-				chunksToLoad = append(chunksToLoad, coord)
+				// Calculate priority based on distance from player
+				distance := int(math.Sqrt(float64(dx*dx + dy*dy)))
+				priority := cm.viewDistance*2 - distance
+
+				job := ChunkGenerationJob{
+					coord:    coord,
+					priority: priority,
+				}
+
+				// Separate high-priority chunks (close to player) from background chunks
+				if distance <= settings.ChunkPriorityRadius {
+					priorityChunks = append(priorityChunks, job)
+				} else {
+					backgroundChunks = append(backgroundChunks, job)
+				}
 			}
 		}
 	}
 
-	// Only load up to MaxChunksPerFrame per call to reduce stutter
-	for i := 0; i < len(chunksToLoad) && i < MaxChunksPerFrame; i++ {
-		coord := chunksToLoad[i]
-		cm.GetChunk(coord.X, coord.Y) // Will start async generation if not present
+	// Load priority chunks first (up to frame limit)
+	for i := 0; i < len(priorityChunks) && loadCount < settings.MaxChunksPerFrame; i++ {
+		job := priorityChunks[i]
+		cm.GetChunk(job.coord.X, job.coord.Y) // Will start async generation
 		loadCount++
+
+		// Check if we should stop loading this frame
+		if cm.ShouldLimitChunkLoading() {
+			break
+		}
+	}
+
+	// If we have capacity and background generation is enabled, load background chunks
+	if settings.BackgroundChunkGeneration && loadCount < settings.MaxChunksPerFrame {
+		for i := 0; i < len(backgroundChunks) && loadCount < settings.MaxChunksPerFrame; i++ {
+			job := backgroundChunks[i]
+
+			// Only load background chunks if we haven't hit the time limit
+			if !cm.ShouldLimitChunkLoading() {
+				cm.GetChunk(job.coord.X, job.coord.Y)
+				loadCount++
+			} else {
+				break
+			}
+		}
 	}
 
 	if loadCount > 0 {
-		fmt.Printf("CHUNK_MANAGER: Loading %d new chunks around player (limited per frame)\n", loadCount)
+		fmt.Printf("CHUNK_MANAGER: Loading %d chunks this frame (limited for performance)\n", loadCount)
 	}
 }
 
@@ -420,4 +494,34 @@ func (cm *ChunkManager) Stop() {
 	cm.workerCancel()
 	cm.workerPool.Wait()
 	fmt.Println("CHUNK_MANAGER: All workers stopped")
+}
+
+// ResetFrameCounters resets per-frame counters (should be called each frame)
+func (cm *ChunkManager) ResetFrameCounters() {
+	cm.mutex.Lock()
+	cm.chunksLoadedThisFrame = 0
+	cm.frameStartTime = time.Now()
+	cm.frameCount++
+	cm.mutex.Unlock()
+}
+
+// ShouldLimitChunkLoading checks if we should limit chunk loading this frame
+func (cm *ChunkManager) ShouldLimitChunkLoading() bool {
+	cm.mutex.RLock()
+	defer cm.mutex.RUnlock()
+
+	// Check if we've hit the per-frame limit
+	if cm.chunksLoadedThisFrame >= settings.MaxChunksPerFrame {
+		return true
+	}
+
+	// Check if we've exceeded the time slice for this frame
+	if !cm.frameStartTime.IsZero() {
+		elapsed := time.Since(cm.frameStartTime)
+		if elapsed.Milliseconds() >= int64(settings.ChunkGenerationTimeSlice) {
+			return true
+		}
+	}
+
+	return false
 }

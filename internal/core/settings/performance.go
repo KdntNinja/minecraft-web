@@ -21,8 +21,14 @@ const (
 
 	// --- Performance Thresholds ---
 	SlowChunkGenerationThreshold = 100 // Milliseconds - log chunks that take longer
-	MaxChunksPerFrame            = 2   // Limit chunk loading per frame to prevent stutter
+	MaxChunksPerFrame            = 1   // Limit chunk loading per frame to prevent stutter (reduced from 2)
 	PhysicsUpdateInterval        = 60  // Frames between physics grid regeneration
+
+	// --- Anti-Stutter Configuration ---
+	ChunkGenerationTimeSlice  = 8    // Max milliseconds per frame for chunk generation
+	MaxConcurrentChunkJobs    = 4    // Max concurrent chunk generation jobs
+	ChunkPriorityRadius       = 2    // Priority radius around player for chunk loading
+	BackgroundChunkGeneration = true // Generate chunks in background when not needed immediately
 
 	// --- Spatial Optimization ---
 	SpatialGridCellSize = TileSize * 4 // Size of each spatial grid cell for physics
