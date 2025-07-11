@@ -35,24 +35,27 @@ func DrawDebugOverlay(
 	memBarColor := color.RGBA{120, 120, 255, 255}
 
 	// Panel size (taller and thinner for more vertical info)
-	w, h := 280, 550 // was 520, 340
-	bg := ebiten.NewImage(w, h)
-	bg.Fill(bgColor)
-	// Draw border
-	for i := 0; i < 3; i++ {
-		borderRect := ebiten.NewImage(w-2*i, h-2*i)
-		borderRect.Fill(borderColor)
-		op := &ebiten.DrawImageOptions{}
-		op.GeoM.Translate(float64(i), float64(i))
-		bg.DrawImage(borderRect, op)
+	w, h := 280, 550
+	// Use a package-level variable to cache the background image
+	var debugOverlayBg *ebiten.Image
+	if debugOverlayBg == nil || debugOverlayBg.Bounds().Dx() != w || debugOverlayBg.Bounds().Dy() != h {
+		bg := ebiten.NewImage(w, h)
+		bg.Fill(bgColor)
+		for i := 0; i < 3; i++ {
+			borderRect := ebiten.NewImage(w-2*i, h-2*i)
+			borderRect.Fill(borderColor)
+			op := &ebiten.DrawImageOptions{}
+			op.GeoM.Translate(float64(i), float64(i))
+			bg.DrawImage(borderRect, op)
+		}
+		inner := ebiten.NewImage(w-6, h-6)
+		inner.Fill(bgColor)
+		opInner := &ebiten.DrawImageOptions{}
+		opInner.GeoM.Translate(3, 3)
+		bg.DrawImage(inner, opInner)
+		debugOverlayBg = bg
 	}
-	// Draw background inside border
-	inner := ebiten.NewImage(w-6, h-6)
-	inner.Fill(bgColor)
-	opInner := &ebiten.DrawImageOptions{}
-	opInner.GeoM.Translate(3, 3)
-	bg.DrawImage(inner, opInner)
-	screen.DrawImage(bg, &ebiten.DrawImageOptions{})
+	screen.DrawImage(debugOverlayBg, &ebiten.DrawImageOptions{})
 
 	// Draw FPS graph (last 120 frames, larger, relative scaling to runtime min/max)
 	graphX, graphY := 30, 40

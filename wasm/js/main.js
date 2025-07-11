@@ -117,6 +117,10 @@ const WASM_INITIAL_MB = 512; // 512 MiB initial
 const WASM_MAX_MB = 2048;    // 2 GiB max
 const memory = new WebAssembly.Memory({ initial: WASM_INITIAL_MB * 16, maximum: WASM_MAX_MB * 16 }); // 1 page = 64KiB
 
+// Ensure Go WASM runtime is available
+if (typeof Go === 'undefined') {
+    throw new Error('Go WASM runtime (Go) is not defined. Please include wasm_exec.js before this script.');
+}
 if (!window.go) window.go = new Go();
 if (!go.importObject) go.importObject = {};
 if (!go.importObject.env) go.importObject.env = {};
