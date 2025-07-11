@@ -9,7 +9,7 @@ import (
 	"github.com/KdntNinja/webcraft/internal/core/settings"
 )
 
-func Draw(g *[][]block.Chunk, screen *ebiten.Image) {
+func Draw(g *[][]block.Chunk, screen *ebiten.Image, cameraX, cameraY float64) {
 	if tileImages == nil {
 		initTileImages()
 	}
@@ -33,14 +33,14 @@ func Draw(g *[][]block.Chunk, screen *ebiten.Image) {
 			baseTileY := cy * chunkHeight
 			for y := 0; y < chunkHeight; y++ {
 				globalTileY := baseTileY + y
-				py := globalTileY * tileSize
-				if globalTileY < startTileY || globalTileY >= endTileY || py >= screenHeight {
+				py := float64(globalTileY*tileSize) - cameraY
+				if globalTileY < startTileY || globalTileY >= endTileY || int(py) >= screenHeight {
 					continue
 				}
 				for x := 0; x < chunkWidth; x++ {
 					globalTileX := baseTileX + x
-					px := globalTileX * tileSize
-					if globalTileX < startTileX || globalTileX >= endTileX || px >= screenWidth {
+					px := float64(globalTileX*tileSize) - cameraX
+					if globalTileX < startTileX || globalTileX >= endTileX || int(px) >= screenWidth {
 						continue
 					}
 					blockType := chunk[y][x]
@@ -53,7 +53,7 @@ func Draw(g *[][]block.Chunk, screen *ebiten.Image) {
 					}
 					drawOpts := getDrawOptions()
 					drawOpts.GeoM.Reset()
-					drawOpts.GeoM.Translate(float64(px), float64(py))
+					drawOpts.GeoM.Translate(px, py)
 					screen.DrawImage(tile, drawOpts)
 				}
 			}
