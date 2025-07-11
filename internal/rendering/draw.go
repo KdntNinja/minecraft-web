@@ -26,6 +26,8 @@ func Draw(g *[][]block.Chunk, screen *ebiten.Image, cameraX, cameraY float64) {
 	startTileY := 0
 	endTileY := (screenHeight + tileSize - 1) / tileSize
 
+	drawOpts := getDrawOptions() // Reuse one instance per frame
+
 	for cy := 0; cy < len(*g); cy++ {
 		for cx := 0; cx < len((*g)[cy]); cx++ {
 			chunk := (*g)[cy][cx]
@@ -51,7 +53,6 @@ func Draw(g *[][]block.Chunk, screen *ebiten.Image, cameraX, cameraY float64) {
 					if tile == nil {
 						continue
 					}
-					drawOpts := getDrawOptions()
 					drawOpts.GeoM.Reset()
 					drawOpts.GeoM.Translate(px, py)
 					screen.DrawImage(tile, drawOpts)

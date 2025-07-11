@@ -45,9 +45,6 @@ type Game struct {
 	// Async physics system
 	asyncPhysics *physics.AsyncPhysicsSystem
 
-	// Multithreaded rendering
-	asyncRenderer *rendering.AsyncRenderer
-
 	// Debug
 	ShowDebug     bool // Show debug screen when F3 is pressed
 	prevF3Pressed bool // Track previous F3 key state for toggle
@@ -98,9 +95,6 @@ func NewGame() *Game {
 	// Initialize async systems
 	progress.UpdateCurrentStepProgress(2, "Initializing async physics system...")
 	g.asyncPhysics = physics.GetAsyncPhysicsSystem()
-
-	progress.UpdateCurrentStepProgress(3, "Initializing async renderer...")
-	g.asyncRenderer = rendering.GetAsyncRenderer()
 
 	// Hide the cursor for better gameplay experience and use custom crosshair
 	ebiten.SetCursorMode(ebiten.CursorModeHidden)
@@ -366,9 +360,6 @@ func (g *Game) Shutdown() {
 	}
 	if g.asyncPhysics != nil {
 		g.asyncPhysics.Shutdown()
-	}
-	if g.asyncRenderer != nil {
-		g.asyncRenderer.Shutdown()
 	}
 	fmt.Println("GAME: Shutdown complete")
 }
