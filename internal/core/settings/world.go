@@ -7,11 +7,11 @@ const (
 	PerlinOctaves     = 2   // Number of Perlin noise octaves (layers)
 	PerlinPersistence = 0.5 // Perlin octave contribution (blending factor)
 
-	ChunkWidth        = 32  // Chunk width in blocks
-	ChunkHeight       = 256 // Chunk height in blocks
-	WorldChunksY      = 20  // Number of chunks vertically in the world
-	WorldChunksX      = 25  // Number of chunks horizontally in the world
-	TileSize          = 30  // Tile size in pixels
-	DefaultSeed       = 42  // Default world generation seed
-	ChunkViewDistance = 3   // Chunks to keep loaded around the player
+	ChunkWidth        = 16  // Chunk width in blocks (reduced from 32 for better performance)
+	ChunkHeight       = 128 // Chunk height in blocks (reduced from 256 for faster generation)
+	WorldChunksY      = 15  // Number of chunks vertically in the world (reduced)
+	WorldChunksX      = 32  // Number of chunks horizontally in the world (reduced)
+	TileSize          = 32  // Tile size in pixels (reduced from 30 for better rendering performance)
+	DefaultSeed       = 0   // Default world generation seed
+	ChunkViewDistance = 2   // Chunks to keep loaded around the player (reduced from 3)
 )
