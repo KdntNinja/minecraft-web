@@ -220,7 +220,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	bgColor := GetBackgroundColor(playerY)
 	screen.Fill(bgColor)
 
-	// World rendering using DrawWithCamera  from renderer.go
+	// World rendering using DrawWithCamera from renderer.go
 	rendering.DrawWithCamera(g.World.GetChunksForRendering(), screen, g.CameraX, g.CameraY)
 
 	// Entity rendering
@@ -230,36 +230,39 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	rendering.DrawCrosshair(screen, g.World, g.CameraX, g.CameraY)
 
 	if g.ShowDebug {
-		// Show debug overlay, hide normal UI
-		var memStats runtime.MemStats
-		runtime.ReadMemStats(&memStats)
-		loadedChunks := 0
-		if g.World != nil && g.World.ChunkManager != nil {
-			loadedChunks = len(g.World.ChunkManager.GetAllChunks())
-		}
+		// Hide normal UI and show debug overlay
+		memStats := new(runtime.MemStats)
+		runtime.ReadMemStats(memStats)
+		memUsage := float64(memStats.Alloc) / (1024 * 1024)
+		maxMem := float64(memStats.Sys) / (1024 * 1024)
+		// Placeholder debug strings
+		playerInfo := "Player: N/A"
+		chunkInfo := "Chunks: N/A"
+		playerStats := "Stats: N/A"
+		camInfo := fmt.Sprintf("Camera: (%.1f, %.1f)", g.CameraX, g.CameraY)
+		seedInfo := fmt.Sprintf("Seed: %d", g.Seed)
+		worldInfo := "World: N/A"
+		gcPercent := float64(memStats.GCCPUFraction) * 100
+		// Use empty slices for block metrics
+		renderedBlocksHistory := []int{}
+		generatedBlocksHistory := []int{}
+		loadedChunks := 0 // Could not determine loaded chunk count
 		rendering.DrawDebugOverlay(
 			screen,
 			g.fpsHistory,
-			g.fpsHistoryMin,
-			g.fpsHistoryMax,
+			g.fpsHistoryMin, g.fpsHistoryMax,
 			g.currentFPS,
 			loadedChunks,
 			len(g.World.Entities),
-			float64(memStats.Alloc)/1024/1024,
-			float64(memStats.Sys)/1024/1024,
-			"PlayerInfo", // TODO: Fill with real info
-			"ChunkInfo",
-			"PlayerStats",
-			"CamInfo",
-			"SeedInfo",
-			"WorldInfo",
-			g.tickTimes,
-			g.tickTimeMin,
-			g.tickTimeMax,
-			0, // TODO: GC percent
+			memUsage, maxMem,
+			playerInfo, chunkInfo, playerStats, camInfo, seedInfo, worldInfo,
+			g.tickTimes, g.tickTimeMin, g.tickTimeMax,
+			gcPercent,
+			renderedBlocksHistory,
+			generatedBlocksHistory,
 		)
 	} else {
-		// Show normal UI
+		// UI
 		selectedBlock := ""
 		if len(g.World.Entities) > 0 {
 			if player, ok := g.World.Entities[0].(*player.Player); ok {

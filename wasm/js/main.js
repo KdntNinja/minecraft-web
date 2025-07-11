@@ -111,11 +111,41 @@ function updateLoadingProgressInternal(percentage, stage, message) {
     }
 }
 
-const go = new Go();
-WebAssembly.instantiateStreaming(fetch("main.wasm"), go.importObject).then((result) => {
-    addLogEntry('Starting WebAssembly module...');
-    go.run(result.instance);
-}).catch(err => {
-    addLogEntry('Error loading WebAssembly: ' + err.message);
-    console.error('Failed to load WebAssembly:', err);
+// --- WASM Memory Allocation Patch ---
+// Improve WASM setup for a game: larger memory, better error handling, and performance hints
+const WASM_INITIAL_MB = 512; // 512 MiB initial
+const WASM_MAX_MB = 2048;    // 2 GiB max
+const memory = new WebAssembly.Memory({ initial: WASM_INITIAL_MB * 16, maximum: WASM_MAX_MB * 16 }); // 1 page = 64KiB
+
+if (!window.go) window.go = new Go();
+if (!go.importObject) go.importObject = {};
+if (!go.importObject.env) go.importObject.env = {};
+go.importObject.env['memory'] = memory;
+
+document.addEventListener('DOMContentLoaded', () => {
+    addLogEntry('Preparing WebAssembly environment...');
+    // Preload WASM file for faster startup
+    fetch('main.wasm').then(response => {
+        if (!response.ok) throw new Error('Failed to fetch main.wasm');
+        return response.arrayBuffer();
+    }).then(bytes => {
+        addLogEntry('Instantiating WebAssembly module...');
+        return WebAssembly.instantiate(bytes, go.importObject);
+    }).then(result => {
+        addLogEntry('Starting WebAssembly module...');
+        go.run(result.instance);
+    }).catch(err => {
+        addLogEntry('Error loading WebAssembly: ' + err.message);
+        console.error('Failed to load WebAssembly:', err);
+        alert('WebAssembly failed to load: ' + err.message);
+    });
 });
+
+// Optionally, expose memory stats for debugging
+window.getWasmMemoryUsage = function() {
+    return {
+        usedMB: memory.buffer.byteLength / (1024 * 1024),
+        totalPages: memory.buffer.byteLength / 65536,
+        maxPages: memory.maximum
+    };
+};

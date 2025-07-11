@@ -87,3 +87,55 @@ func DrawWithCameraAsync(worldChunks map[chunks.ChunkCoord]*block.Chunk, screen 
 		screen.DrawImage(job.tile, drawOpts)
 	}
 }
+
+// DrawWithCameraCountBlocks draws the world and counts rendered blocks
+func DrawWithCameraCountBlocks(worldChunks map[chunks.ChunkCoord]*block.Chunk, screen *ebiten.Image, cameraX, cameraY float64, blockCounter *int) {
+	screenWidth, screenHeight := screen.Bounds().Dx(), screen.Bounds().Dy()
+	tileSize := settings.TileSize
+	chunkWidth := settings.ChunkWidth
+	chunkHeight := settings.ChunkHeight
+
+	startChunkX := int(cameraX / float64(chunkWidth*tileSize))
+	endChunkX := int((cameraX+float64(screenWidth))/float64(chunkWidth*tileSize)) + 1
+	startChunkY := int(cameraY / float64(chunkHeight*tileSize))
+	endChunkY := int((cameraY+float64(screenHeight))/float64(chunkHeight*tileSize)) + 1
+
+	fScreenWidth := float64(screenWidth)
+	fScreenHeight := float64(screenHeight)
+	fTileSize := float64(tileSize)
+
+	drawOpts := getDrawOptions()
+	for coord, chunk := range worldChunks {
+		if coord.X < startChunkX || coord.X > endChunkX || coord.Y < startChunkY || coord.Y > endChunkY {
+			continue
+		}
+		baseTileX := coord.X * chunkWidth
+		baseTileY := coord.Y * chunkHeight
+		for y := 0; y < chunkHeight; y++ {
+			globalTileY := baseTileY + y
+			py := float64(globalTileY*tileSize) - cameraY
+			if py+fTileSize < 0 || py >= fScreenHeight {
+				continue
+			}
+			for x := 0; x < chunkWidth; x++ {
+				globalTileX := baseTileX + x
+				px := float64(globalTileX*tileSize) - cameraX
+				if px+fTileSize < 0 || px >= fScreenWidth {
+					continue
+				}
+				blockType := (*chunk)[y][x]
+				if blockType == block.Air {
+					continue
+				}
+				tile := tileImages[blockType]
+				if tile == nil {
+					continue
+				}
+				drawOpts.GeoM.Reset()
+				drawOpts.GeoM.Translate(px, py)
+				screen.DrawImage(tile, drawOpts)
+				(*blockCounter)++
+			}
+		}
+	}
+}

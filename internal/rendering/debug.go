@@ -21,6 +21,8 @@ func DrawDebugOverlay(
 	playerInfo, chunkInfo, playerStats, camInfo, seedInfo, worldInfo string,
 	tickTimes []float64, minTick, maxTick float64,
 	gcPercent float64,
+	renderedBlocksHistory []int,
+	generatedBlocksHistory []int,
 ) {
 	// Colors
 	bgColor := color.RGBA{20, 20, 30, 230}
@@ -226,4 +228,71 @@ func DrawDebugOverlay(
 		labelX = int(gcX) + gcW - 80
 	}
 	ebitenutil.DebugPrintAt(screen, gcLabel, labelX, labelY)
+
+	// Draw rendered blocks chart
+	chartW, chartH := 220, 40
+	chartX, chartY := 30, 370
+	chart := ebiten.NewImage(chartW, chartH)
+	chart.Fill(color.RGBA{30, 30, 30, 200})
+	if len(renderedBlocksHistory) > 1 {
+		maxBlocks := 1
+		for _, v := range renderedBlocksHistory {
+			if v > maxBlocks {
+				maxBlocks = v
+			}
+		}
+		for i := 1; i < len(renderedBlocksHistory); i++ {
+			prev := renderedBlocksHistory[i-1]
+			curr := renderedBlocksHistory[i]
+			x0 := (i - 1) * chartW / len(renderedBlocksHistory)
+			y0 := chartH - (prev * chartH / maxBlocks)
+			x1 := i * chartW / len(renderedBlocksHistory)
+			y1 := chartH - (curr * chartH / maxBlocks)
+			col := color.RGBA{80, 180, 255, 255}
+			for dx := 0; dx < 2; dx++ {
+				if x0+dx < chartW && x1+dx < chartW {
+					for dy := y0; dy <= y1 && dy < chartH; dy++ {
+						chart.Set(x0+dx, dy, col)
+					}
+				}
+			}
+		}
+	}
+	chartOp := &ebiten.DrawImageOptions{}
+	chartOp.GeoM.Translate(float64(chartX), float64(chartY))
+	screen.DrawImage(chart, chartOp)
+	// Label
+	ebitenutil.DebugPrintAt(screen, "Rendered Blocks", chartX, chartY-16)
+
+	// Draw generated blocks chart
+	chart2 := ebiten.NewImage(chartW, chartH)
+	chart2.Fill(color.RGBA{30, 30, 30, 200})
+	if len(generatedBlocksHistory) > 1 {
+		maxBlocks := 1
+		for _, v := range generatedBlocksHistory {
+			if v > maxBlocks {
+				maxBlocks = v
+			}
+		}
+		for i := 1; i < len(generatedBlocksHistory); i++ {
+			prev := generatedBlocksHistory[i-1]
+			curr := generatedBlocksHistory[i]
+			x0 := (i - 1) * chartW / len(generatedBlocksHistory)
+			y0 := chartH - (prev * chartH / maxBlocks)
+			x1 := i * chartW / len(generatedBlocksHistory)
+			y1 := chartH - (curr * chartH / maxBlocks)
+			col := color.RGBA{255, 180, 80, 255}
+			for dx := 0; dx < 2; dx++ {
+				if x0+dx < chartW && x1+dx < chartW {
+					for dy := y0; dy <= y1 && dy < chartH; dy++ {
+						chart2.Set(x0+dx, dy, col)
+					}
+				}
+			}
+		}
+	}
+	chart2Op := &ebiten.DrawImageOptions{}
+	chart2Op.GeoM.Translate(float64(chartX), float64(chartY+chartH+10))
+	screen.DrawImage(chart2, chart2Op)
+	ebitenutil.DebugPrintAt(screen, "Generated Blocks", chartX, chartY+chartH-6)
 }
