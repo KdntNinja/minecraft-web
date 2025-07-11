@@ -45,9 +45,6 @@ type Game struct {
 	// Async physics system
 	asyncPhysics *physics.AsyncPhysicsSystem
 
-	// Multithreaded rendering
-	asyncRenderer *rendering.AsyncRenderer
-
 	// Debug
 	ShowDebug     bool // Show debug screen when F3 is pressed
 	prevF3Pressed bool // Track previous F3 key state for toggle
@@ -98,9 +95,6 @@ func NewGame() *Game {
 	// Initialize async systems
 	progress.UpdateCurrentStepProgress(2, "Initializing async physics system...")
 	g.asyncPhysics = physics.GetAsyncPhysicsSystem()
-
-	progress.UpdateCurrentStepProgress(3, "Initializing async renderer...")
-	g.asyncRenderer = rendering.GetAsyncRenderer()
 
 	// Hide the cursor for better gameplay experience and use custom crosshair
 	ebiten.SetCursorMode(ebiten.CursorModeHidden)
@@ -226,8 +220,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	bgColor := GetBackgroundColor(playerY)
 	screen.Fill(bgColor)
 
-	// World rendering using async renderer
-	rendering.DrawWithCameraAsync(g.World.GetChunksForRendering(), screen, g.CameraX, g.CameraY)
+	// World rendering using DrawWithCamera from renderer.go
+	rendering.DrawWithCamera(g.World.GetChunksForRendering(), screen, g.CameraX, g.CameraY)
 
 	// Entity rendering
 	rendering.DrawEntities(g.World.Entities, screen, g.CameraX, g.CameraY, g.LastScreenW, g.LastScreenH, g.playerImage)
@@ -235,14 +229,48 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	// Crosshair
 	rendering.DrawCrosshair(screen, g.World, g.CameraX, g.CameraY)
 
-	// UI
-	selectedBlock := ""
-	if len(g.World.Entities) > 0 {
-		if player, ok := g.World.Entities[0].(*player.Player); ok {
-			selectedBlock = player.SelectedBlock.String()
+	if g.ShowDebug {
+		// Hide normal UI and show debug overlay
+		memStats := new(runtime.MemStats)
+		runtime.ReadMemStats(memStats)
+		memUsage := float64(memStats.Alloc) / (1024 * 1024)
+		maxMem := float64(memStats.Sys) / (1024 * 1024)
+		// Placeholder debug strings
+		playerInfo := "Player: N/A"
+		chunkInfo := "Chunks: N/A"
+		playerStats := "Stats: N/A"
+		camInfo := fmt.Sprintf("Camera: (%.1f, %.1f)", g.CameraX, g.CameraY)
+		seedInfo := fmt.Sprintf("Seed: %d", g.Seed)
+		worldInfo := "World: N/A"
+		gcPercent := float64(memStats.GCCPUFraction) * 100
+		// Use empty slices for block metrics
+		renderedBlocksHistory := []int{}
+		generatedBlocksHistory := []int{}
+		loadedChunks := 0 // Could not determine loaded chunk count
+		rendering.DrawDebugOverlay(
+			screen,
+			g.fpsHistory,
+			g.fpsHistoryMin, g.fpsHistoryMax,
+			g.currentFPS,
+			loadedChunks,
+			len(g.World.Entities),
+			memUsage, maxMem,
+			playerInfo, chunkInfo, playerStats, camInfo, seedInfo, worldInfo,
+			g.tickTimes, g.tickTimeMin, g.tickTimeMax,
+			gcPercent,
+			renderedBlocksHistory,
+			generatedBlocksHistory,
+		)
+	} else {
+		// UI
+		selectedBlock := ""
+		if len(g.World.Entities) > 0 {
+			if player, ok := g.World.Entities[0].(*player.Player); ok {
+				selectedBlock = player.SelectedBlock.String()
+			}
 		}
+		rendering.DrawGameUI(screen, g.currentFPS, selectedBlock)
 	}
-	rendering.DrawGameUI(screen, g.currentFPS, selectedBlock)
 
 	// Track render performance
 	g.renderTime = time.Since(renderStart)
@@ -366,9 +394,6 @@ func (g *Game) Shutdown() {
 	}
 	if g.asyncPhysics != nil {
 		g.asyncPhysics.Shutdown()
-	}
-	if g.asyncRenderer != nil {
-		g.asyncRenderer.Shutdown()
 	}
 	fmt.Println("GAME: Shutdown complete")
 }
