@@ -63,7 +63,7 @@ func UpdateCurrentStepProgress(currentSub int, description string) {
 		globalTracker.CurrentMessage = description
 		percentage := calculateCurrentPercentage()
 		// Sleep duration decreases as percentage increases (max 200ms, min 10ms)
-		sleepMs := 100 - int(float64(percentage)*1.9)
+		sleepMs := 90 - int(float64(percentage)*1.9)
 		if sleepMs < 10 {
 			sleepMs = 10
 		}

@@ -220,8 +220,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	bgColor := GetBackgroundColor(playerY)
 	screen.Fill(bgColor)
 
-	// World rendering using async renderer
-	rendering.DrawWithCameraAsync(g.World.GetChunksForRendering(), screen, g.CameraX, g.CameraY)
+	// World rendering using DrawWithCamera  from renderer.go
+	rendering.DrawWithCamera(g.World.GetChunksForRendering(), screen, g.CameraX, g.CameraY)
 
 	// Entity rendering
 	rendering.DrawEntities(g.World.Entities, screen, g.CameraX, g.CameraY, g.LastScreenW, g.LastScreenH, g.playerImage)
@@ -229,14 +229,45 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	// Crosshair
 	rendering.DrawCrosshair(screen, g.World, g.CameraX, g.CameraY)
 
-	// UI
-	selectedBlock := ""
-	if len(g.World.Entities) > 0 {
-		if player, ok := g.World.Entities[0].(*player.Player); ok {
-			selectedBlock = player.SelectedBlock.String()
+	if g.ShowDebug {
+		// Show debug overlay, hide normal UI
+		var memStats runtime.MemStats
+		runtime.ReadMemStats(&memStats)
+		loadedChunks := 0
+		if g.World != nil && g.World.ChunkManager != nil {
+			loadedChunks = len(g.World.ChunkManager.GetAllChunks())
 		}
+		rendering.DrawDebugOverlay(
+			screen,
+			g.fpsHistory,
+			g.fpsHistoryMin,
+			g.fpsHistoryMax,
+			g.currentFPS,
+			loadedChunks,
+			len(g.World.Entities),
+			float64(memStats.Alloc)/1024/1024,
+			float64(memStats.Sys)/1024/1024,
+			"PlayerInfo", // TODO: Fill with real info
+			"ChunkInfo",
+			"PlayerStats",
+			"CamInfo",
+			"SeedInfo",
+			"WorldInfo",
+			g.tickTimes,
+			g.tickTimeMin,
+			g.tickTimeMax,
+			0, // TODO: GC percent
+		)
+	} else {
+		// Show normal UI
+		selectedBlock := ""
+		if len(g.World.Entities) > 0 {
+			if player, ok := g.World.Entities[0].(*player.Player); ok {
+				selectedBlock = player.SelectedBlock.String()
+			}
+		}
+		rendering.DrawGameUI(screen, g.currentFPS, selectedBlock)
 	}
-	rendering.DrawGameUI(screen, g.currentFPS, selectedBlock)
 
 	// Track render performance
 	g.renderTime = time.Since(renderStart)
