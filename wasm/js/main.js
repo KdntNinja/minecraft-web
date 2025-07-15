@@ -6,7 +6,7 @@ if (logContainer) logContainer.style.display = 'none';
 
 let logEntries = [];
 let lastUpdateTime = 0;
-const UPDATE_THROTTLE = 50; // Minimum ms between UI updates
+const UPDATE_THROTTLE = 10; // Minimum ms between UI updates (faster)
 
 // Capture console.log and add to loading logs
 const originalLog = console.log;
@@ -77,11 +77,11 @@ function updateLoadingProgressInternal(percentage, stage, message) {
     const stageEl = document.getElementById('loading-stage');
     const messageEl = document.getElementById('loading-message');
     
-    const displayPercentage = Math.min(100, Math.round(percentage));
+    const displayPercentage = Math.min(100, Math.max(0, Math.round(percentage)));
 
     if (percentageEl) percentageEl.textContent = displayPercentage + '%';
     if (barEl) {
-        barEl.style.width = percentage + '%';
+        barEl.style.width = displayPercentage + '%';
         // Force a reflow to ensure the transition happens
         barEl.offsetHeight;
     }

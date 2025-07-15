@@ -9,6 +9,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 
+	"github.com/KdntNinja/webcraft/internal/core/engine/block"
 	"github.com/KdntNinja/webcraft/internal/core/physics"
 	"github.com/KdntNinja/webcraft/internal/core/physics/entity"
 	"github.com/KdntNinja/webcraft/internal/core/progress"
@@ -262,14 +263,12 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			generatedBlocksHistory,
 		)
 	} else {
-		// UI
-		selectedBlock := ""
+		// Hotbar UI (top left)
 		if len(g.World.Entities) > 0 {
 			if player, ok := g.World.Entities[0].(*player.Player); ok {
-				selectedBlock = player.SelectedBlock.String()
+				rendering.DrawHotbarUI(screen, player)
 			}
 		}
-		rendering.DrawGameUI(screen, g.currentFPS, selectedBlock)
 	}
 
 	// Track render performance
@@ -312,9 +311,21 @@ func (g *Game) UpdateEntitiesNearCameraAsync() {
 			if blockInteraction != nil {
 				switch blockInteraction.Type {
 				case player.BreakBlock:
-					g.World.BreakBlock(blockInteraction.BlockX, blockInteraction.BlockY)
+					// Get the block type before breaking
+					blockType := g.World.GetBlockAt(blockInteraction.BlockX, blockInteraction.BlockY)
+					if blockType != block.Air {
+						// Add block to inventory
+						p.AddToInventory(blockType, 1)
+						g.World.BreakBlock(blockInteraction.BlockX, blockInteraction.BlockY)
+					}
 				case player.PlaceBlock:
-					g.World.PlaceBlock(blockInteraction.BlockX, blockInteraction.BlockY, p.SelectedBlock)
+					// Only place if player has block in inventory
+					if p.Inventory[p.SelectedBlock] > 0 {
+						placed := g.World.PlaceBlock(blockInteraction.BlockX, blockInteraction.BlockY, p.SelectedBlock)
+						if placed {
+							p.RemoveFromInventory(p.SelectedBlock, 1)
+						}
+					}
 				}
 			}
 		}

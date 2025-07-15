@@ -4,6 +4,7 @@ import (
 	"image/color"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 
 	"github.com/KdntNinja/webcraft/internal/core/settings"
 )
@@ -51,4 +52,18 @@ func DrawBlockOutline(screen *ebiten.Image, x, y int, outlineColor color.RGBA) {
 			screen.Set(x+tileSize-2, y+i, outlineColor)
 		}
 	}
+}
+
+// DrawUITextOutline draws text with a colored outline for readability
+func DrawUITextOutline(screen *ebiten.Image, text string, x, y int, outline, fill color.Color) {
+	// Draw outline (4 directions)
+	for dx := -1; dx <= 1; dx++ {
+		for dy := -1; dy <= 1; dy++ {
+			if dx != 0 || dy != 0 {
+				ebitenutil.DebugPrintAt(screen, text, x+dx, y+dy)
+			}
+		}
+	}
+	// Draw fill
+	ebitenutil.DebugPrintAt(screen, text, x, y)
 }
