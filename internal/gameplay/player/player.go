@@ -9,16 +9,18 @@ import (
 type Player struct {
 	entity.AABB
 	entity.InputState
-	wasOnGround         bool                     // Previous frame ground state
-	SelectedBlock       block.BlockType          // Currently selected block type for placing
-	InteractionRange    float64                  // Maximum range for block interaction
-	LastInteractionTime int                      // Frame counter for interaction cooldown
-	InteractionCooldown int                      // Cooldown frames between interactions (faster than inpututil)
-	World               WorldBlockGetter         // Use concrete interface for better performance
-	Health              int                      // Player health
-	MaxHealth           int                      // Maximum health
-	Inventory           [block.NumBlockTypes]int // Use array for fast inventory access
-	IsSprinting         bool                     // Sprinting state
+	wasOnGround           bool                     // Previous frame ground state
+	SelectedBlock         block.BlockType          // Currently selected block type for placing
+	InteractionRange      float64                  // Maximum range for block interaction
+	LastInteractionTime   int                      // Frame counter for interaction cooldown
+	InteractionCooldown   int                      // Cooldown frames between interactions (faster than inpututil)
+	World                 WorldBlockGetter         // Use concrete interface for better performance
+	Health                int                      // Player health
+	MaxHealth             int                      // Maximum health
+	Inventory             [block.NumBlockTypes]int // Use array for fast inventory access
+	Hotbar                []block.BlockType        // Dynamic hotbar (up to 9 blocks)
+	IsSprinting           bool                     // Sprinting state
+	lastEmptiedHotbarSlot int                      // -1 if none
 }
 
 // WorldBlockGetter is a minimal interface for world block access (concrete, not anonymous)
@@ -37,13 +39,15 @@ func NewPlayer(x, y float64, world WorldBlockGetter) *Player {
 			Width:  settings.PlayerColliderWidth,
 			Height: settings.PlayerColliderHeight,
 		},
-		SelectedBlock:       block.Grass,                    // Default to grass blocks (block 1)
-		InteractionRange:    float64(settings.TileSize * 4), // 4 block radius
-		InteractionCooldown: 0,                              // 3 frames cooldown (about 0.05 seconds at 60fps)
-		World:               world,
-		Health:              100,
-		MaxHealth:           100,
-		IsSprinting:         false,
+		SelectedBlock:         block.Grass,                    // Default to grass blocks (block 1)
+		InteractionRange:      float64(settings.TileSize * 4), // 4 block radius
+		InteractionCooldown:   0,                              // 3 frames cooldown (about 0.05 seconds at 60fps)
+		World:                 world,
+		Health:                100,
+		MaxHealth:             100,
+		Hotbar:                make([]block.BlockType, 9), // Always 9 slots, filled with block.Air
+		lastEmptiedHotbarSlot: -1,
+		IsSprinting:           false,
 	}
 	// Inventory array is zeroed by default
 	return p
@@ -94,6 +98,39 @@ func (p *Player) Heal(amount int) {
 func (p *Player) AddToInventory(blockType block.BlockType, count int) {
 	if int(blockType) >= 0 && int(blockType) < len(p.Inventory) {
 		p.Inventory[blockType] += count
+		// Add to hotbar if not already present and not air
+		if blockType != block.Air {
+			found := false
+			for _, b := range p.Hotbar {
+				if b == blockType {
+					found = true
+					break
+				}
+			}
+			if !found {
+				slot := -1
+				// Prefer to fill the most recently emptied slot
+				if p.lastEmptiedHotbarSlot >= 0 && p.lastEmptiedHotbarSlot < len(p.Hotbar) && p.Hotbar[p.lastEmptiedHotbarSlot] == block.Air {
+					slot = p.lastEmptiedHotbarSlot
+				} else {
+					// Otherwise, find first empty slot
+					for i, b := range p.Hotbar {
+						if b == block.Air {
+							slot = i
+							break
+						}
+					}
+				}
+				// If no empty slot, replace first slot
+				if slot == -1 && len(p.Hotbar) > 0 {
+					slot = 0
+				}
+				if slot != -1 {
+					p.Hotbar[slot] = blockType
+					p.lastEmptiedHotbarSlot = -1 // Reset after use
+				}
+			}
+		}
 	}
 }
 
@@ -101,6 +138,16 @@ func (p *Player) AddToInventory(blockType block.BlockType, count int) {
 func (p *Player) RemoveFromInventory(blockType block.BlockType, count int) bool {
 	if int(blockType) >= 0 && int(blockType) < len(p.Inventory) && p.Inventory[blockType] >= count {
 		p.Inventory[blockType] -= count
+		// If the count is now zero, set hotbar slot to block.Air (do not shift others)
+		if p.Inventory[blockType] == 0 {
+			for i, b := range p.Hotbar {
+				if b == blockType {
+					p.Hotbar[i] = block.Air
+					p.lastEmptiedHotbarSlot = i
+					break
+				}
+			}
+		}
 		return true
 	}
 	return false

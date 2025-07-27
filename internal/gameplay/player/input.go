@@ -4,7 +4,6 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 
-	"github.com/KdntNinja/webcraft/internal/core/engine/block"
 	"github.com/KdntNinja/webcraft/internal/core/settings"
 )
 
@@ -98,25 +97,10 @@ func (p *Player) HandleInput(cameraX, cameraY float64) (isMoving bool, targetVX 
 
 // handleBlockSelection processes number key input to change selected block type
 func (p *Player) handleBlockSelection() {
-	if inpututil.IsKeyJustPressed(ebiten.Key1) {
-		p.SelectedBlock = block.Grass
-	} else if inpututil.IsKeyJustPressed(ebiten.Key2) {
-		p.SelectedBlock = block.Dirt
-	} else if inpututil.IsKeyJustPressed(ebiten.Key3) {
-		p.SelectedBlock = block.Clay
-	} else if inpututil.IsKeyJustPressed(ebiten.Key4) {
-		p.SelectedBlock = block.Stone
-	} else if inpututil.IsKeyJustPressed(ebiten.Key5) {
-		p.SelectedBlock = block.CopperOre
-	} else if inpututil.IsKeyJustPressed(ebiten.Key6) {
-		p.SelectedBlock = block.IronOre
-	} else if inpututil.IsKeyJustPressed(ebiten.Key7) {
-		p.SelectedBlock = block.GoldOre
-	} else if inpututil.IsKeyJustPressed(ebiten.Key8) {
-		p.SelectedBlock = block.Ash
-	} else if inpututil.IsKeyJustPressed(ebiten.Key9) {
-		p.SelectedBlock = block.Wood
-	} else if inpututil.IsKeyJustPressed(ebiten.Key0) {
-		p.SelectedBlock = block.Leaves
+	for i := 0; i < len(p.Hotbar) && i < 9; i++ {
+		key := ebiten.Key(int(ebiten.Key1) + i)
+		if inpututil.IsKeyJustPressed(key) {
+			p.SelectedBlock = p.Hotbar[i]
+		}
 	}
 }

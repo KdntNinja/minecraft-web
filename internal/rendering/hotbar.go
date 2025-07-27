@@ -27,9 +27,9 @@ func DrawHotbarUI(screen *ebiten.Image, p *player.Player) {
 	hotbarBgOpts.GeoM.Translate(float64(x0-8), float64(y0-6))
 	screen.DrawImage(hotbarBg, hotbarBgOpts)
 
-	for i := 0; i < 10; i++ {
+	for i := 0; i < len(p.Hotbar); i++ {
 		x := x0 + i*(tileSize+padding)
-		blockType := block.BlockType(i + 1) // Skip Air (0)
+		blockType := p.Hotbar[i]
 		count := p.Inventory[blockType]
 
 		// Draw slot with rounded corners and shadow
@@ -70,11 +70,11 @@ func DrawHotbarUI(screen *ebiten.Image, p *player.Player) {
 		// Simulate rounded border by overlaying a smaller dark rect
 		borderImg.DrawImage(ebiten.NewImage(tileSize-8, tileSize-8), &ebiten.DrawImageOptions{})
 
-		// Draw block count with black outline for readability (top right)
+		// Draw block count with black outline for readability (bottom left)
 		if count > 0 {
 			countStr := fmt.Sprintf("%d", count)
-			textX := x + tileSize - 20
-			textY := y0 + 8
+			textX := x + 8
+			textY := y0 + tileSize - 12
 			DrawUITextOutline(screen, countStr, textX, textY, color.Black, color.White)
 		}
 
