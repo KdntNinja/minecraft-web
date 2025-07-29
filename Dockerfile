@@ -1,47 +1,38 @@
-
-# ---- Build Stage ----
-FROM golang:1.24.3-alpine AS builder
+#########################################################
+# Build Stage: compile WASM and prepare static build
+#########################################################
+FROM golang:1.24.3 AS builder
 WORKDIR /app
 
-# Copy source code (flat structure, no internal/)
+# Fetch modules
 COPY go.mod go.sum ./
-COPY *.go ./
-COPY wasm/ ./wasm/
-COPY coretypes/ ./coretypes/
-COPY engine/ ./engine/
-COPY gameplay/ ./gameplay/
-COPY generation/ ./generation/
-COPY rendering/ ./rendering/
-COPY physics/ ./physics/
-COPY progress/ ./progress/
-COPY settings/ ./settings/
+RUN go mod download
 
-# Make script executable and run it to get wasm_exec.js
-RUN chmod +x wasm/scripts/find_wasm_exec.sh && \
-    wasm/scripts/find_wasm_exec.sh
+# Copy all source, assets, and scripts
+COPY . ./
 
-# Update go.mod and build the WASM binary
-RUN go mod tidy && \
-    GOOS=js GOARCH=wasm EBITEN_GRAPHICS_LIBRARY=opengl go build -o wasm/main.wasm .
+# Format and build WASM + static assets
+RUN go fmt ./...
+RUN mkdir -p web/build/css web/build/js && \
+    GOOS=js GOARCH=wasm EBITEN_GRAPHICS_LIBRARY=opengl go build -o web/build/main.wasm . && \
+    chmod +x scripts/find_wasm_exec.sh && scripts/find_wasm_exec.sh web/build && \
+    cp web/static/index.html web/build/index.html && \
+    cp web/css/style.css web/build/css/style.css && \
+    cp web/js/main.js web/build/js/main.js
 
-# ---- Production Stage ----
-FROM golang:1.24.3-alpine
+#########################################################
+# Production Stage: run Go static server for WASM build
+#########################################################
+FROM golang:1.24.3-alpine AS production
 WORKDIR /app
 
-# Install curl for healthchecks
+# Install minimal tools
 RUN apk add --no-cache curl
 
-# Copy the built wasm directory from builder stage
-COPY --from=builder /app/wasm /app/wasm
-COPY --from=builder /app/*.go /app/
-COPY --from=builder /app/coretypes /app/coretypes
-COPY --from=builder /app/engine /app/engine
-COPY --from=builder /app/gameplay /app/gameplay
-COPY --from=builder /app/generation /app/generation
-COPY --from=builder /app/rendering /app/rendering
-COPY --from=builder /app/physics /app/physics
-COPY --from=builder /app/progress /app/progress
-COPY --from=builder /app/settings /app/settings
+# Copy static build and server code
+COPY --from=builder /app/web/build web/build
+COPY web/serve.go ./serve.go
 
 EXPOSE 3000
-CMD ["go", "run", "main.go"]
+# Launch the Go static file server
+CMD ["go", "run", "serve.go"]

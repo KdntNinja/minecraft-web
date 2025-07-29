@@ -134,8 +134,6 @@ const (
 	EnableGCOptimization     = true // Force garbage collection at optimal times
 	MetricsHistorySize       = 120  // Number of frames to keep for performance history
 )
-
-// --- Player Physics ---
 const (
 	PlayerSpriteWidth    = TileSize             // Visual width of the player sprite.
 	PlayerSpriteHeight   = TileSize * 2         // Visual height of the player sprite.

@@ -56,7 +56,7 @@ func (a *AABB) CollideBlocksAdvanced(world *PhysicsWorld) {
 				rightEdge := int((newX + float64(a.Width)) / tileSize)
 				for y := int(a.Y / tileSize); y <= int((a.Y+float64(a.Height)-1)/tileSize); y++ {
 					if IsSolid(blocks, rightEdge, y, a.GridOffsetX, a.GridOffsetY) {
-						a.X = float64(rightEdge)*tileSize - float64(a.Width) - 0.1 // Slight offset to prevent sticking
+						a.X = float64(rightEdge)*tileSize - float64(a.Width)
 						a.VX = 0
 						break
 					}
@@ -69,7 +69,7 @@ func (a *AABB) CollideBlocksAdvanced(world *PhysicsWorld) {
 				leftEdge := int(newX / tileSize)
 				for y := int(a.Y / tileSize); y <= int((a.Y+float64(a.Height)-1)/tileSize); y++ {
 					if IsSolid(blocks, leftEdge, y, a.GridOffsetX, a.GridOffsetY) {
-						a.X = float64(leftEdge+1)*tileSize + 0.1 // Slight offset to prevent sticking
+						a.X = float64(leftEdge+1) * tileSize
 						a.VX = 0
 						break
 					}
@@ -100,7 +100,7 @@ func (a *AABB) CollideBlocksAdvanced(world *PhysicsWorld) {
 				bottomEdge := int((newY + float64(a.Height)) / tileSize)
 				for x := int(a.X / tileSize); x <= int((a.X+float64(a.Width)-1)/tileSize); x++ {
 					if IsSolid(blocks, x, bottomEdge, a.GridOffsetX, a.GridOffsetY) {
-						a.Y = float64(bottomEdge)*tileSize - float64(a.Height) - 0.1 // Slight offset
+						a.Y = float64(bottomEdge)*tileSize - float64(a.Height)
 						a.VY = 0
 						a.OnGround = true
 						break
@@ -114,7 +114,7 @@ func (a *AABB) CollideBlocksAdvanced(world *PhysicsWorld) {
 				topEdge := int(newY / tileSize)
 				for x := int(a.X / tileSize); x <= int((a.X+float64(a.Width)-1)/tileSize); x++ {
 					if IsSolid(blocks, x, topEdge, a.GridOffsetX, a.GridOffsetY) {
-						a.Y = float64(topEdge+1)*tileSize + 0.1 // Slight offset
+						a.Y = float64(topEdge+1) * tileSize
 						a.VY = 0
 						break
 					}
@@ -135,8 +135,8 @@ func (a *AABB) CollideBlocksAdvanced(world *PhysicsWorld) {
 		for x := int(a.X / tileSize); x <= int((a.X+float64(a.Width)-1)/tileSize); x++ {
 			if IsSolid(blocks, x, bottomEdge, a.GridOffsetX, a.GridOffsetY) {
 				// Check if we're close enough to the ground
-				groundY := float64(bottomEdge * settings.TileSize)
-				if bottomY >= groundY-2.0 && bottomY <= groundY+2.0 {
+				groundY := float64(bottomEdge) * tileSize
+				if bottomY >= groundY && bottomY <= groundY+tileSize {
 					a.OnGround = true
 					break
 				}
