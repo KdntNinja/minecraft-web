@@ -2,15 +2,10 @@ package main
 
 import (
 	"log"
-	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 
 	game "github.com/KdntNinja/webcraft/engine"
-	"github.com/KdntNinja/webcraft/gameplay/world"
-	"github.com/KdntNinja/webcraft/generation"
-	"github.com/KdntNinja/webcraft/settings"
-	"github.com/KdntNinja/webcraft/worldgen"
 )
 
 func main() {
@@ -24,9 +19,8 @@ func main() {
 	ebiten.SetWindowSize(1280, 720)
 	ebiten.SetWindowTitle("Webcraft")
 
-	chunkManager := generation.NewChunkManager(settings.ChunkViewDistance)
-	spawn := worldgen.FindSafeSpawnPoint()
-	g := game.NewGame(world.NewWorld(time.Now().UnixNano(), chunkManager, spawn))
+	// World creation is handled inside game.NewGame()
+	g := game.NewGame()
 	if err := ebiten.RunGame(g); err != nil {
 		log.Fatal(err)
 	}
