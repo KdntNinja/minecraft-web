@@ -7,9 +7,10 @@
 *.out
 
 # WASM build artifacts
-wasm/main.wasm
+*build/
+*main.wasm
 *wasm_exec.js
-webcraft
+*webcraft
 
 # Python http.server cache
 __pycache__/
