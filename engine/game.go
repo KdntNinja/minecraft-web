@@ -229,7 +229,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	// World rendering using DrawWithCamera from renderer.go
 	chunks, ok := g.World.GetChunksForRendering().(map[coretypes.ChunkCoord]*coretypes.Chunk)
 	if ok {
-		rendering.DrawWithCamera(chunks, screen, g.CameraX, g.CameraY)
+		rendering.Draw(chunks, screen, g.CameraX, g.CameraY, g.physicsOffsetX, g.physicsOffsetY)
 	}
 
 	// Entity rendering

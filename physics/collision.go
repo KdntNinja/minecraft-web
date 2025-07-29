@@ -18,9 +18,6 @@ func IsSolid(blocks [][]int, x, y int, offsetX, offsetY int) bool {
 
 // CollideBlocks handles AABB collision using resolv physics library
 func (a *AABB) CollideBlocks(blocks [][]int) {
-	// Offset collision box 1px to the left for alignment
-	a.X -= 1
-	defer func() { a.X += 1 }()
 
 	offsetX := a.GridOffsetX
 	offsetY := a.GridOffsetY
