@@ -16,6 +16,7 @@ import (
 	"github.com/KdntNinja/webcraft/physics"
 	"github.com/KdntNinja/webcraft/progress"
 	"github.com/KdntNinja/webcraft/rendering"
+	"github.com/KdntNinja/webcraft/rendering/debug"
 	"github.com/KdntNinja/webcraft/settings"
 	"github.com/KdntNinja/webcraft/worldgen"
 )
@@ -131,6 +132,11 @@ func NewGame() *Game {
 		}
 	}
 
+	// Initialize debug UI
+	if err := debug.InitDebugUI(); err != nil {
+		fmt.Printf("WARNING: Failed to initialize debug UI: %v\n", err)
+	}
+
 	runtime.GC() // Force garbage collection after initialization
 	fmt.Printf("GAME: Initialized with %d CPU cores available\n", runtime.NumCPU())
 	return g
@@ -238,13 +244,19 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	// Crosshair
 	rendering.DrawCrosshair(screen, g.World, g.CameraX, g.CameraY)
 
+	// Always draw normal UI (hotbar)
+	if len(g.World.Entities) > 0 {
+		if player, ok := g.World.Entities[0].(*gameplay.Player); ok {
+			rendering.DrawHotbarUI(screen, player)
+		}
+	}
+
+	// Draw debug overlay if enabled (on top of normal UI)
 	if g.ShowDebug {
-		// Hide normal UI and show debug overlay
 		memStats := new(runtime.MemStats)
 		runtime.ReadMemStats(memStats)
 		memUsage := float64(memStats.Alloc) / (1024 * 1024)
 		maxMem := float64(memStats.Sys) / (1024 * 1024)
-		// Placeholder debug strings
 		playerInfo := "Player: N/A"
 		chunkInfo := "Chunks: N/A"
 		playerStats := "Stats: N/A"
@@ -252,11 +264,10 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		seedInfo := fmt.Sprintf("Seed: %d", g.Seed)
 		worldInfo := "World: N/A"
 		gcPercent := float64(memStats.GCCPUFraction) * 100
-		// Use empty slices for block metrics
 		renderedBlocksHistory := []int{}
 		generatedBlocksHistory := []int{}
-		loadedChunks := 0 // Could not determine loaded chunk count
-		rendering.DrawDebugOverlay(
+		loadedChunks := 0
+		debug.DrawDebugOverlay(
 			screen,
 			g.fpsHistory,
 			g.fpsHistoryMin, g.fpsHistoryMax,
@@ -270,13 +281,6 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			renderedBlocksHistory,
 			generatedBlocksHistory,
 		)
-	} else {
-		// Hotbar UI (top left)
-		if len(g.World.Entities) > 0 {
-			if player, ok := g.World.Entities[0].(*gameplay.Player); ok {
-				rendering.DrawHotbarUI(screen, player)
-			}
-		}
 	}
 
 	// Track render performance

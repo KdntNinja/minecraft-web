@@ -3,7 +3,6 @@ package coretypes
 // Entity interface that all game objects must implement
 type Entity interface {
 	Update()
-	CollideBlocks(blocks [][]int)
 	ClampX(min, max float64)
 	GetPosition() (float64, float64)
 	SetPosition(x, y float64)

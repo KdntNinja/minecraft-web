@@ -140,8 +140,8 @@ const (
 	PlayerColliderWidth  = (TileSize * 9) / 10  // Physics bounding box width for collision.
 	PlayerColliderHeight = (TileSize * 18) / 10 // Physics bounding box height for collision.
 	PlayerMoveSpeed      = 4.3                  // Maximum horizontal walking speed (blocks/sec).
-	PlayerJumpSpeed      = -9.0                 // Initial vertical jump velocity (upwards).
-	PlayerGravity        = 0.45                 // Gravity force applied each frame.
+	PlayerJumpSpeed      = -7.0                 // Initial vertical jump velocity (upwards).
+	PlayerGravity        = 0.65                 // Gravity force applied each frame.
 	PlayerMaxFallSpeed   = 16.0                 // Maximum downward velocity (terminal velocity).
 
 	// --- Movement Tuning ---
@@ -158,14 +158,13 @@ const (
 	PlayerCoyoteFrames     = 8    // Grace period (frames) to jump after leaving a ledge.
 	PlayerJumpBufferFrames = 8    // Grace period (frames) to buffer a jump before landing.
 	PlayerJumpHoldMax      = 12   // Max duration (frames) to hold jump for variable height.
-	PlayerJumpHoldForce    = 0.32 // Upward force applied each frame when holding jump.
+	PlayerJumpHoldForce    = 0.22 // Upward force applied each frame when holding jump.
 )
 
 // --- Rendering/Texture System Constants ---
 const (
-	AtlasTileSize      = 8    // Tile size in the texture atlas (pixels)
-	TextureLogFallback = true // Log when fallback color-based textures are used
-	TextureLogInit     = true // Log when texture system is initialized
+	AtlasTileSize  = 8    // Tile size in the texture atlas (pixels)
+	TextureLogInit = true // Log when texture system is initialized
 )
 
 // --- Terrain Height Generation Constants ---

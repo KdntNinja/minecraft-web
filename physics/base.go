@@ -21,6 +21,12 @@ func (a *AABB) ClampX(min, max float64) {
 	}
 }
 
+// SetGridOffset sets the collision grid offset for the AABB
+func (a *AABB) SetGridOffset(x, y int) {
+	a.GridOffsetX = x
+	a.GridOffsetY = y
+}
+
 func (a *AABB) GetPosition() (float64, float64) {
 	return a.X, a.Y
 }
