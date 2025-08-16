@@ -23,7 +23,7 @@ func (g *Game) UpdateEntitiesNearCamera() {
 			SetGridOffset(x, y int)
 			Update()
 			GetSelectedBlock() int
-			CollideBlocksAdvanced(*physics.PhysicsWorld)
+			CollideBlocks(*physics.PhysicsWorld)
 			HandleBlockInteractions(cameraX, cameraY float64) interface {
 				GetType() int
 				GetBlockX() int
@@ -53,9 +53,9 @@ func (g *Game) UpdateEntitiesNearCamera() {
 				g.World.PlaceBlock(blockX, blockY, coretypes.BlockType(entity.GetSelectedBlock()))
 			}
 		}
-		// Use cached physics world
+		// Apply collision using cached physics world
 		if g.physicsWorld != nil {
-			entity.CollideBlocksAdvanced(g.physicsWorld)
+			entity.CollideBlocks(g.physicsWorld)
 		}
 	}
 }

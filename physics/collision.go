@@ -1,108 +1,115 @@
 package physics
 
 import (
-	"math"
-
 	"github.com/KdntNinja/webcraft/settings"
 )
 
-// IsSolid checks if a block at grid coordinates is solid, using grid offset
-func IsSolid(blocks [][]int, x, y int, offsetX, offsetY int) bool {
-	x -= offsetX
-	y -= offsetY
-	if y < 0 || x < 0 || y >= len(blocks) || x >= len(blocks[0]) {
-		return false
-	}
-	return blocks[y][x] > 0
-}
+// CollideBlocks performs collision detection and resolution using improved sub-pixel precision
+func (a *AABB) CollideBlocks(world *PhysicsWorld) {
+	blocks := world.Blocks
+	tileSize := float64(settings.TileSize)
 
-// CollideBlocks handles AABB collision via raycasting at the object edges
-func (a *AABB) CollideBlocks(blocks [][]int) {
-	offsetX := a.GridOffsetX
-	offsetY := a.GridOffsetY
-
-	// Horizontal stepping collision
+	// Move horizontally first with sub-stepping for better precision
 	if a.VX != 0 {
-		dx := a.VX
-		signX := math.Copysign(1, dx)
-		steps := int(math.Abs(dx))
-		// step one pixel at a time
-		for i := 0; i < steps; i++ {
-			a.X += signX
-			// check both top and bottom edge
-			tileX := int(math.Floor((a.X + math.Max(0, signX*(float64(a.Width)-1))) / float64(settings.TileSize)))
-			minY := int(math.Floor((a.Y + 1) / float64(settings.TileSize)))
-			maxY := int(math.Floor((a.Y + float64(a.Height) - 1) / float64(settings.TileSize)))
-			hit := false
-			for y := minY; y <= maxY; y++ {
-				if IsSolid(blocks, tileX, y, offsetX, offsetY) {
-					hit = true
-					break
-				}
-			}
-			if hit {
-				a.X -= signX
-				a.VX = 0
-				break
-			}
+		steps := 1
+		if a.VX > tileSize/2 || a.VX < -tileSize/2 {
+			steps = int(abs(a.VX)/(tileSize/2)) + 1 // Sub-step for fast movement
 		}
-		// remaining fraction
-		remX := dx - signX*float64(steps)
-		a.X += remX
-		// fractional collision check
-		tileX := int(math.Floor((a.X + math.Max(0, remX+math.Max(0, float64(a.Width)-1))) / float64(settings.TileSize)))
-		minY := int(math.Floor((a.Y + 1) / float64(settings.TileSize)))
-		maxY := int(math.Floor((a.Y + float64(a.Height) - 1) / float64(settings.TileSize)))
-		for y := minY; y <= maxY; y++ {
-			if IsSolid(blocks, tileX, y, offsetX, offsetY) {
-				a.X -= remX
-				a.VX = 0
-				break
+
+		stepX := a.VX / float64(steps)
+
+		for i := 0; i < steps; i++ {
+			newX := a.X + stepX
+
+			// Check collision at new position
+			if a.VX > 0 { // Moving right
+				rightEdge := int((newX + float64(a.Width)) / tileSize)
+				for y := int(a.Y / tileSize); y <= int((a.Y+float64(a.Height)-1)/tileSize); y++ {
+					if IsSolid(blocks, rightEdge, y, a.GridOffsetX, a.GridOffsetY) {
+						a.X = float64(rightEdge)*tileSize - float64(a.Width)
+						a.VX = 0
+						break
+					}
+				}
+				if a.VX == 0 {
+					break // Stop if collision found
+				}
+				a.X = newX
+			} else { // Moving left
+				leftEdge := int(newX / tileSize)
+				for y := int(a.Y / tileSize); y <= int((a.Y+float64(a.Height)-1)/tileSize); y++ {
+					if IsSolid(blocks, leftEdge, y, a.GridOffsetX, a.GridOffsetY) {
+						a.X = float64(leftEdge+1) * tileSize
+						a.VX = 0
+						break
+					}
+				}
+				if a.VX == 0 {
+					break // Stop if collision found
+				}
+				a.X = newX
 			}
 		}
 	}
 
-	// Vertical stepping collision
+	// Move vertically with sub-stepping
 	a.OnGround = false
 	if a.VY != 0 {
-		dy := a.VY
-		signY := math.Copysign(1, dy)
-		steps := int(math.Abs(dy))
+		steps := 1
+		if a.VY > tileSize/2 || a.VY < -tileSize/2 {
+			steps = int(abs(a.VY)/(tileSize/2)) + 1 // Sub-step for fast movement
+		}
+
+		stepY := a.VY / float64(steps)
+
 		for i := 0; i < steps; i++ {
-			a.Y += signY
-			// check both left and right edge
-			tileY := int(math.Floor((a.Y + math.Max(0, signY*(float64(a.Height)-1))) / float64(settings.TileSize)))
-			minX := int(math.Floor((a.X + 1) / float64(settings.TileSize)))
-			maxX := int(math.Floor((a.X + float64(a.Width) - 1) / float64(settings.TileSize)))
-			hit := false
-			for x := minX; x <= maxX; x++ {
-				if IsSolid(blocks, x, tileY, offsetX, offsetY) {
-					hit = true
-					break
+			newY := a.Y + stepY
+
+			// Check collision at new position
+			if a.VY > 0 { // Moving down (falling)
+				bottomEdge := int((newY + float64(a.Height)) / tileSize)
+				for x := int(a.X / tileSize); x <= int((a.X+float64(a.Width)-1)/tileSize); x++ {
+					if IsSolid(blocks, x, bottomEdge, a.GridOffsetX, a.GridOffsetY) {
+						a.Y = float64(bottomEdge)*tileSize - float64(a.Height)
+						a.VY = 0
+						a.OnGround = true
+						break
+					}
 				}
-			}
-			if hit {
-				a.Y -= signY
-				a.VY = 0
-				if signY > 0 {
-					a.OnGround = true
+				if a.VY == 0 {
+					break // Stop if collision found
 				}
-				break
+				a.Y = newY
+			} else { // Moving up (jumping)
+				topEdge := int(newY / tileSize)
+				for x := int(a.X / tileSize); x <= int((a.X+float64(a.Width)-1)/tileSize); x++ {
+					if IsSolid(blocks, x, topEdge, a.GridOffsetX, a.GridOffsetY) {
+						a.Y = float64(topEdge+1) * tileSize
+						a.VY = 0
+						break
+					}
+				}
+				if a.VY == 0 {
+					break // Stop if collision found
+				}
+				a.Y = newY
 			}
 		}
-		remY := dy - signY*float64(steps)
-		a.Y += remY
-		tileY := int(math.Floor((a.Y + math.Max(0, remY+math.Max(0, float64(a.Height)-1))) / float64(settings.TileSize)))
-		minX := int(math.Floor((a.X + 1) / float64(settings.TileSize)))
-		maxX := int(math.Floor((a.X + float64(a.Width) - 1) / float64(settings.TileSize)))
-		for x := minX; x <= maxX; x++ {
-			if IsSolid(blocks, x, tileY, offsetX, offsetY) {
-				a.Y -= remY
-				a.VY = 0
-				if signY > 0 {
+	}
+
+	// Ground check for when not moving vertically
+	if !a.OnGround && a.VY >= 0 {
+		bottomY := a.Y + float64(a.Height)
+		bottomEdge := int((bottomY + 2.0) / tileSize) // Check slightly below
+
+		for x := int(a.X / tileSize); x <= int((a.X+float64(a.Width)-1)/tileSize); x++ {
+			if IsSolid(blocks, x, bottomEdge, a.GridOffsetX, a.GridOffsetY) {
+				// Check if we're close enough to the ground
+				groundY := float64(bottomEdge) * tileSize
+				if bottomY >= groundY && bottomY <= groundY+tileSize {
 					a.OnGround = true
+					break
 				}
-				break
 			}
 		}
 	}

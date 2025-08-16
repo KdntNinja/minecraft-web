@@ -173,13 +173,39 @@ func (p *Player) CanInteract() bool {
 	return p.LastInteractionTime >= p.InteractionCooldown
 }
 
-// PhysicsWorldProvider allows access to a physics world for advanced collision
-type PhysicsWorldProvider interface {
-	GetPhysicsWorld() *physics.PhysicsWorld
+// CollideBlocks resolves collisions using the provided physics world
+func (p *Player) CollideBlocks(world *physics.PhysicsWorld) {
+	p.AABB.CollideBlocks(world)
 }
 
-func (p *Player) CollideBlocksAdvanced(world *physics.PhysicsWorld) {
-	p.AABB.CollideBlocksAdvanced(world)
+// SetGridOffset sets the collision grid offset for the player
+func (p *Player) SetGridOffset(x, y int) {
+	p.AABB.SetGridOffset(x, y)
+}
+
+// GetX returns the player's X position
+func (p *Player) GetX() float64 {
+	return p.AABB.X
+}
+
+// GetY returns the player's Y position
+func (p *Player) GetY() float64 {
+	return p.AABB.Y
+}
+
+// GetColliderWidth returns the player's collider width
+func (p *Player) GetColliderWidth() float64 {
+	return float64(p.AABB.Width)
+}
+
+// GetColliderHeight returns the player's collider height
+func (p *Player) GetColliderHeight() float64 {
+	return float64(p.AABB.Height)
+}
+
+// GetSelectedBlock returns the currently selected block index
+func (p *Player) GetSelectedBlock() int {
+	return int(p.SelectedBlock)
 }
 
 // ResetInteractionCooldown resets the cooldown timer after an interaction

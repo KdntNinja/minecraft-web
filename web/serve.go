@@ -3,9 +3,12 @@ package main
 import (
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -117,10 +120,33 @@ func main() {
 		log.Printf("    %s \033[1;36m%-20s\033[0m in \033[1;35m%v\033[0m", statusColor, r.URL.Path, duration)
 	})
 
-	fmt.Printf("\n\033[1;33mStarting Webcraft server on port %s\033[0m\n", port)
-	fmt.Printf("Open \033[4;36mhttp://localhost:%s\033[0m in your browser\n\n", port)
+	// Attempt to bind to the port, retrying on next port if occupied
+	portNum, err := strconv.Atoi(port)
+	if err != nil {
+		log.Fatalf("Invalid PORT value %s: %v", port, err)
+	}
+	for {
+		addr := fmt.Sprintf(":%d", portNum)
+		// Try binding to the port to check availability
+		listener, err := net.Listen("tcp", addr)
+		if err != nil {
+			if strings.Contains(err.Error(), "address already in use") {
+				log.Printf("Port %d in use, trying %d", portNum, portNum+1)
+				portNum++
+				continue
+			}
+			log.Fatalf("Failed to bind to %s: %v", addr, err)
+		}
+		listener.Close()
 
-	if err := http.ListenAndServe(":"+port, nil); err != nil {
-		log.Fatalf("Server failed to start: %v", err)
+		// Print start message with chosen port
+		fmt.Printf("\n\033[1;33mStarting Webcraft server on port %d\033[0m\n", portNum)
+		fmt.Printf("Open \033[4;36mhttp://localhost:%d\033[0m in your browser\n\n", portNum)
+		log.Printf("Listening on %s", addr)
+
+		if err := http.ListenAndServe(addr, nil); err != nil {
+			log.Fatalf("Server failed to start: %v", err)
+		}
+		break
 	}
 }

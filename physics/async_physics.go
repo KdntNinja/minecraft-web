@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"github.com/KdntNinja/webcraft/coretypes"
-
 	"github.com/KdntNinja/webcraft/settings"
 )
 
@@ -83,10 +82,9 @@ func (aps *AsyncPhysicsSystem) processPhysicsJob(job PhysicsUpdateJob) {
 	// If there's a physics world, handle collisions
 	if job.physicsWorld != nil {
 		// Apply physics collision detection
-		// This would need to be implemented based on the entity type
 		switch e := job.entity.(type) {
-		case interface{ CollideBlocksAdvanced(*PhysicsWorld) }:
-			e.CollideBlocksAdvanced(job.physicsWorld)
+		case interface{ CollideBlocks(*PhysicsWorld) }:
+			e.CollideBlocks(job.physicsWorld)
 		}
 	}
 
